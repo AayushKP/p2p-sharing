@@ -7,16 +7,31 @@ const wss = new WebSocketServer({ port: 5000 });
 let users: User[] = [];
 
 function broadcastOnlineUsers() {
-  const payload = JSON.stringify({
-    type: "online-users",
-    users: users.map((u) => ({ id: u.id })),
+  users.forEach((user) => {
+    const filtered = users
+      .filter((u) => u.id !== user.id)
+      .map((u) => ({ id: u.id }));
+
+    user.ws.send(
+      JSON.stringify({
+        type: "online-users",
+        users: filtered,
+      })
+    );
   });
-  users.forEach((u) => u.ws.send(payload));
 }
 
 wss.on("connection", (ws) => {
   const newUser: User = { id: uuid(), ws };
   users.push(newUser);
+  console.log("New connection:", newUser.id);
+  newUser.ws.send(
+    JSON.stringify({
+      type: "your-id",
+      id: newUser.id,
+    })
+  );
+  console.log("Assigned ID:", newUser.id);
 
   broadcastOnlineUsers();
 
@@ -38,11 +53,26 @@ wss.on("connection", (ws) => {
     if (data.type === "accept-connection") {
       const roomId = uuid();
 
-      const peerA = users.find((u) => u.id === newUser.id);
-      const peerB = users.find((u) => u.id === data.to);
+      const requester = users.find((u) => u.id === data.from);
+      const receiver = newUser; // B is newUser
 
-      peerA?.ws.send(JSON.stringify({ type: "webrtc-start", roomId }));
-      peerB?.ws.send(JSON.stringify({ type: "webrtc-start", roomId }));
+      requester?.ws.send(
+        JSON.stringify({
+          type: "webrtc-start",
+          roomId,
+          otherUser: receiver.id,
+          isCaller: true, // A is caller
+        })
+      );
+
+      receiver.ws.send(
+        JSON.stringify({
+          type: "webrtc-start",
+          roomId,
+          otherUser: requester!.id,
+          isCaller: false, // B is receiver
+        })
+      );
     }
 
     if (data.type === "offer") {

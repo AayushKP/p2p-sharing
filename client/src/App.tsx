@@ -5,14 +5,20 @@ export default function App() {
     users,
     incomingRequest,
     connectedRoom,
+    isCaller,
     sendConnectionRequest,
     acceptRequest,
+    myId,
   } = useWS();
 
   return (
     <div className="h-screen flex bg-gray-100">
       <aside className="w-64 min-w-50 bg-white border-r p-4 overflow-y-auto">
         <h1 className="text-xl font-bold mb-4">Users Online</h1>
+
+        <div className="p-2 mb-4 bg-gray-200 rounded text-gray-900 font-semibold">
+          You: {myId}
+        </div>
 
         <div className="space-y-3">
           {users.map((u) => (
@@ -26,16 +32,28 @@ export default function App() {
           ))}
         </div>
       </aside>
-
       <main className="flex-1 flex items-center justify-center text-center p-6">
         {!connectedRoom && (
           <div>
-            <h2 className="text-3xl font-semibold text-gray-800">
-              Not Connected
-            </h2>
-            <p className="text-gray-500 mt-2">
-              Select a user from the left panel to send a connection request
-            </p>
+            {!incomingRequest && !isCaller && (
+              <>
+                <h2 className="text-3xl font-semibold text-gray-800">
+                  Not Connected
+                </h2>
+                <p className="text-gray-500 mt-2">
+                  Select a user from the left panel to send a connection
+                  request.
+                </p>
+              </>
+            )}
+
+            {isCaller && !incomingRequest && (
+              <div className="text-gray-700">
+                <h2 className="text-2xl font-bold">
+                  Waiting for user to accept…
+                </h2>
+              </div>
+            )}
           </div>
         )}
 
@@ -48,7 +66,7 @@ export default function App() {
           </div>
         )}
       </main>
-
+      //Incoming Request Popup ONLY for target user
       {incomingRequest && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-xl w-80">
@@ -62,6 +80,7 @@ export default function App() {
               >
                 Accept
               </button>
+
               <button
                 onClick={() => {}}
                 className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600"
