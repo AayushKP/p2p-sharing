@@ -1,44 +1,46 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
-    "rootDir": "./src",
-    "outDir": "./dist",
-
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
+    // 1. Module and Target Settings
+    // 'nodenext' handles the target, module resolution, and lib automatically,
+    // but explicit lib and target settings are often included for clarity.
     "module": "nodenext",
-    "target": "esnext",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
+    "target": "es2022", // A modern, stable target is generally preferred over 'esnext'
 
-    // Other Outputs
+    // Explicitly declaring Node.js environment types and libraries
+    "lib": ["es2022"], // Use a specific version like es2022 instead of esnext
+    "types": ["node"],
+
+    // 2. File Layout and Output
+    "rootDir": "./src", // TypeScript source files are in 'src'
+    "outDir": "./dist", // Compiled JavaScript files go into 'dist'
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
 
-    // Stricter Typechecking Options
+    // 3. Strictness & Safety (All of your original choices, which are excellent)
+    "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
-    "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+
+    // 4. Style and Quality Checks
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+
+    // 5. NodeNext/ESM Module Handling
+    // Allows the use of import syntax (required for NodeNext)
+    "verbatimModuleSyntax": true, // 💡 RECOMMENDED CHANGE: Set this to true.
+
+    // If you are compiling a backend service, you generally don't need JSX.
+    // If your server uses JSX (e.g., for SSR), keep it. Otherwise, remove it.
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*"] // Ensures all files in src are compiled
 }

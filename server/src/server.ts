@@ -1,6 +1,6 @@
 import { WebSocketServer } from "ws";
 import { v4 as uuid } from "uuid";
-import { User } from "./types";
+import type { User } from "./types.js";
 
 const wss = new WebSocketServer({ port: 5000 });
 
