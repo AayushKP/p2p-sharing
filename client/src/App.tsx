@@ -1,3 +1,4 @@
+import FileTransfer from "./components/FileTransfer";
 import { useWS } from "./context/WebSocketContext";
 
 export default function App() {
@@ -58,15 +59,13 @@ export default function App() {
         )}
 
         {connectedRoom && (
-          <div>
-            <h2 className="text-3xl font-bold text-green-600">
-              Connected Room
-            </h2>
-            <p className="text-gray-600 mt-2">{connectedRoom}</p>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-green-600">Connected</h2>
+            <FileTransfer />
           </div>
         )}
       </main>
-      //Incoming Request Popup ONLY for target user
+      {/* Incoming Request Popup ONLY for target user */}
       {incomingRequest && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-xl w-80">
