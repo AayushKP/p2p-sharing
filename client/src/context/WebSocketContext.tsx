@@ -39,6 +39,7 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
   const [connectedRoom, setConnectedRoom] = useState<string | null>(null);
 
   const [isCaller, setIsCaller] = useState<boolean>(false);
+  //@ts-ignore
   const [targetUser, setTargetUser] = useState<string | null>(null);
 
   const [rtc, setRtc] = useState<WebRTCManager | null>(null);
