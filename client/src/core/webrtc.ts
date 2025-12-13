@@ -11,7 +11,7 @@ export class WebRTCManager {
   // callback function to be executed when a new ICE candidate is generated
   onIceCandidate: ((c: RTCIceCandidate) => void) | null = null;
 
-  // callback executed when the dataChannel successfully opens, indicating the peer-to-peer connection is ready for data transfer.
+  // callback executed ONLY when DataChannel is OPEN
   onConnected: (() => void) | null = null;
 
   // callback to track sending progress (0–100)
@@ -28,30 +28,35 @@ export class WebRTCManager {
   private receivedSize = 0;
   private incomingMeta: FileMeta | null = null;
 
+  // IMPORTANT: track real DataChannel readiness
+  isChannelOpen = false;
+
   constructor() {
-    // Initialize RTCPeerConnection
     this.peer = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: "stun:stun.l.google.com:19302",
-        },
-      ],
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
-    // Handle local ICE candidate generation
+    // ICE candidates
     this.peer.onicecandidate = (event) => {
       if (event.candidate && this.onIceCandidate) {
         this.onIceCandidate(event.candidate);
       }
     };
 
-    // Handle remote peer creating a Data Channel (Receiver setup)
+    // Connection state (INFO ONLY – not used for sending)
+    this.peer.onconnectionstatechange = () => {
+      console.log("[RTC] PeerConnection state:", this.peer.connectionState);
+    };
+
+    // Receiver side DataChannel
     this.peer.ondatachannel = (event) => {
+      console.log("[RTC] DataChannel received");
       this.dataChannel = event.channel;
       this.setupReceiverChannel();
     };
   }
 
+  // Caller creates DataChannel
   createDataChannel() {
     this.dataChannel = this.peer.createDataChannel("file");
     this.setupSenderChannel();
@@ -63,6 +68,8 @@ export class WebRTCManager {
     this.dataChannel.binaryType = "arraybuffer";
 
     this.dataChannel.onopen = () => {
+      console.log("[RTC] Sender DataChannel OPEN");
+      this.isChannelOpen = true;
       this.onConnected?.();
     };
   }
@@ -72,21 +79,29 @@ export class WebRTCManager {
 
     this.dataChannel.binaryType = "arraybuffer";
 
-    // handle incoming messages (metadata, chunks, completion signal)
-    this.dataChannel.onmessage = (event) => {
-      // metadata & control messages are sent as JSON strings
-      if (typeof event.data === "string") {
-        const message = JSON.parse(event.data);
+    this.dataChannel.onopen = () => {
+      console.log("[RTC] Receiver DataChannel OPEN");
+      this.isChannelOpen = true;
+      this.onConnected?.();
+    };
 
-        // META message initializes file reception
-        if (message.type === "META") {
-          this.incomingMeta = message.meta;
+    this.dataChannel.onmessage = (event) => {
+      console.log("[RTC] Message received:", event.data);
+
+      // Control messages
+      if (typeof event.data === "string") {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "META") {
+          console.log("[RTC] META received:", msg.meta);
+          this.incomingMeta = msg.meta;
           this.receivedBuffers = [];
           this.receivedSize = 0;
         }
 
-        // DONE message indicates file transfer completion
-        if (message.type === "DONE" && this.incomingMeta) {
+        if (msg.type === "DONE" && this.incomingMeta) {
+          console.log("[RTC] DONE received");
+
           //@ts-ignore
           const blob = new Blob(this.receivedBuffers, {
             type: this.incomingMeta.type,
@@ -96,22 +111,20 @@ export class WebRTCManager {
             type: this.incomingMeta.type,
           });
 
+          console.log("[RTC] File reconstructed:", file);
           this.onFileReceived?.(file);
 
-          // reset internal state
           this.receivedBuffers = [];
           this.incomingMeta = null;
         }
-
         return;
       }
 
-      // binary chunk received
+      // Binary chunk
       const chunk = new Uint8Array(event.data);
       this.receivedBuffers.push(chunk);
       this.receivedSize += chunk.byteLength;
 
-      // calculate receive progress
       if (this.incomingMeta && this.onReceiveProgress) {
         const percent = Math.floor(
           (this.receivedSize / this.incomingMeta.size) * 100
@@ -119,15 +132,11 @@ export class WebRTCManager {
         this.onReceiveProgress(percent);
       }
     };
-
-    this.dataChannel.onopen = () => {
-      this.onConnected?.();
-    };
   }
 
   async createOffer() {
     this.createDataChannel();
-    const offer: RTCSessionDescriptionInit = await this.peer.createOffer();
+    const offer = await this.peer.createOffer();
     await this.peer.setLocalDescription(offer);
     return offer;
   }
@@ -146,9 +155,12 @@ export class WebRTCManager {
     await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
   }
 
-  // sends a file over the data channel using chunk-based transfer
+  // SAFE file sending (only when DataChannel is open)
   async sendFile(file: File) {
-    if (!this.dataChannel) return;
+    if (!this.dataChannel || !this.isChannelOpen) {
+      console.warn("[RTC] DataChannel not open yet");
+      return;
+    }
 
     const meta: FileMeta = {
       name: file.name,
@@ -156,11 +168,11 @@ export class WebRTCManager {
       type: file.type,
     };
 
-    // send file metadata first
+    console.log("[RTC] Sending META");
     this.dataChannel.send(JSON.stringify({ type: "META", meta }));
 
-    const chunkSize = 64 * 1024; // 64KB
     const buffer = await file.arrayBuffer();
+    const chunkSize = 64 * 1024;
     let offset = 0;
 
     while (offset < buffer.byteLength) {
@@ -168,13 +180,10 @@ export class WebRTCManager {
       this.dataChannel.send(chunk);
       offset += chunk.byteLength;
 
-      if (this.onSendProgress) {
-        const percent = Math.floor((offset / buffer.byteLength) * 100);
-        this.onSendProgress(percent);
-      }
+      this.onSendProgress?.(Math.floor((offset / buffer.byteLength) * 100));
     }
 
-    // notify receiver that transfer is complete
+    console.log("[RTC] Sending DONE");
     this.dataChannel.send(JSON.stringify({ type: "DONE" }));
   }
 }
