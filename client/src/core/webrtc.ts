@@ -172,18 +172,39 @@ export class WebRTCManager {
     this.dataChannel.send(JSON.stringify({ type: "META", meta }));
 
     const buffer = await file.arrayBuffer();
-    const chunkSize = 64 * 1024;
+    const chunkSize = 64 * 1024; // 64KB
     let offset = 0;
 
-    while (offset < buffer.byteLength) {
-      const chunk = buffer.slice(offset, offset + chunkSize);
-      this.dataChannel.send(chunk);
-      offset += chunk.byteLength;
+    const channel = this.dataChannel;
 
-      this.onSendProgress?.(Math.floor((offset / buffer.byteLength) * 100));
-    }
+    // backpressure threshold (1MB is safe)
+    channel.bufferedAmountLowThreshold = 1024 * 1024;
 
-    console.log("[RTC] Sending DONE");
-    this.dataChannel.send(JSON.stringify({ type: "DONE" }));
+    return new Promise<void>((resolve) => {
+      const sendChunk = () => {
+        while (
+          offset < buffer.byteLength &&
+          channel.bufferedAmount < channel.bufferedAmountLowThreshold
+        ) {
+          const chunk = buffer.slice(offset, offset + chunkSize);
+          channel.send(chunk);
+          offset += chunk.byteLength;
+
+          this.onSendProgress?.(Math.floor((offset / buffer.byteLength) * 100));
+        }
+
+        if (offset < buffer.byteLength) {
+          // wait for buffer to drain
+          channel.onbufferedamountlow = sendChunk;
+        } else {
+          console.log("[RTC] Sending DONE");
+          channel.send(JSON.stringify({ type: "DONE" }));
+          channel.onbufferedamountlow = null;
+          resolve();
+        }
+      };
+
+      sendChunk();
+    });
   }
 }
