@@ -2,53 +2,32 @@ import { useEffect, useState } from "react";
 import { useWS } from "../context/WebSocketContext";
 
 export default function FileTransfer() {
-  const { rtc } = useWS();
+  const { rtc, isCaller } = useWS();
 
-  const [sendProgress, setSendProgress] = useState<number>(0);
-  const [receiveProgress, setReceiveProgress] = useState<number>(0);
+  const [sendProgress, setSendProgress] = useState(0);
+  const [receiveProgress, setReceiveProgress] = useState(0);
   const [receivedFile, setReceivedFile] = useState<File | null>(null);
-  const [channelReady, setChannelReady] = useState<boolean>(false);
+  const [channelReady, setChannelReady] = useState(false);
 
-  // Attach WebRTC callbacks when rtc is available
   useEffect(() => {
-    if (!rtc) {
-      console.log("[UI] RTC not ready");
-      return;
-    }
-
-    console.log("[UI] RTC ready, attaching callbacks");
+    if (!rtc) return;
 
     rtc.onConnected = () => {
-      console.log("[UI] DataChannel OPEN");
       setChannelReady(true);
     };
 
-    rtc.onSendProgress = (percent) => {
-      console.log("[UI] Send progress:", percent);
-      setSendProgress(percent);
-    };
-
-    rtc.onReceiveProgress = (percent) => {
-      console.log("[UI] Receive progress:", percent);
-      setReceiveProgress(percent);
-    };
+    rtc.onSendProgress = setSendProgress;
+    rtc.onReceiveProgress = setReceiveProgress;
 
     rtc.onFileReceived = (file) => {
-      console.log("[UI] File received in UI:", file);
       setReceivedFile(file);
     };
   }, [rtc]);
 
   function handleSendFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !rtc) return;
+    if (!file || !rtc || !channelReady || !isCaller) return;
 
-    if (!channelReady) {
-      console.warn("[UI] DataChannel not ready yet");
-      return;
-    }
-
-    console.log("[UI] Sending file:", file.name);
     setSendProgress(0);
     rtc.sendFile(file);
   }
@@ -56,7 +35,6 @@ export default function FileTransfer() {
   function handleDownload() {
     if (!receivedFile) return;
 
-    console.log("[UI] Downloading file:", receivedFile.name);
     const url = URL.createObjectURL(receivedFile);
     const a = document.createElement("a");
     a.href = url;
@@ -66,45 +44,97 @@ export default function FileTransfer() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-4 text-center">
-      {/* SEND FILE */}
-      <div className="space-y-2">
-        <input
-          type="file"
-          disabled={!channelReady}
-          onChange={handleSendFile}
-          className="block w-full text-sm"
-        />
+    <div className="w-full max-w-lg bg-white rounded-xl shadow-lg p-6 space-y-6">
+      {/* ROLE HEADER */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-bold">P2P File Transfer</h3>
 
-        {!channelReady && (
-          <p className="text-sm text-gray-500">Waiting for peer connection…</p>
-        )}
-
-        {sendProgress > 0 && (
-          <p className="text-sm text-gray-700">Sending: {sendProgress}%</p>
-        )}
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-semibold ${
+            isCaller
+              ? "bg-blue-100 text-blue-700"
+              : "bg-green-100 text-green-700"
+          }`}
+        >
+          {isCaller ? "🟦 Sender" : "🟩 Receiver"}
+        </span>
       </div>
 
-      {/* RECEIVE PROGRESS */}
-      {receiveProgress > 0 && (
-        <p className="text-sm text-gray-700">Receiving: {receiveProgress}%</p>
+      {/* CONNECTION STATUS */}
+      <div className="text-sm text-gray-600">
+        {channelReady ? "🔗 Secure connection established" : "⏳ Connecting…"}
+      </div>
+
+      {/* SENDER PANEL */}
+      {isCaller && (
+        <div className="space-y-3">
+          <label className="block font-medium text-gray-700">
+            📤 Send a file
+          </label>
+
+          <input
+            type="file"
+            disabled={!channelReady}
+            onChange={handleSendFile}
+            className="block w-full text-sm border rounded p-2"
+          />
+
+          {sendProgress > 0 && (
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Sending</span>
+                <span>{sendProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded"
+                  style={{ width: `${sendProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* DOWNLOAD UI */}
-      {receivedFile && (
-        <div className="border rounded p-4 bg-gray-50 space-y-2">
-          <p className="font-medium">File received</p>
-          <p className="text-sm text-gray-600">{receivedFile.name}</p>
-          <p className="text-xs text-gray-500">
-            {(receivedFile.size / 1024).toFixed(2)} KB
+      {/* RECEIVER PANEL */}
+      {!isCaller && (
+        <div className="space-y-3">
+          <p className="text-gray-600">
+            📥 Waiting to receive file from sender
           </p>
 
-          <button
-            onClick={handleDownload}
-            className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Download
-          </button>
+          {receiveProgress > 0 && (
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Receiving</span>
+                <span>{receiveProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded h-2">
+                <div
+                  className="bg-green-500 h-2 rounded"
+                  style={{ width: `${receiveProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {receivedFile && (
+            <div className="border rounded-lg p-4 bg-green-50 space-y-2">
+              <p className="font-semibold text-green-700">✅ File received</p>
+
+              <p className="text-sm">{receivedFile.name}</p>
+              <p className="text-xs text-gray-500">
+                {(receivedFile.size / 1024).toFixed(2)} KB
+              </p>
+
+              <button
+                onClick={handleDownload}
+                className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+              >
+                ⬇ Download
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
