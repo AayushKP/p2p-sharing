@@ -1,7 +1,7 @@
 export class WSClient {
   ws: WebSocket;
   constructor() {
-    this.ws = new WebSocket("ws://localhost:5000");
+    this.ws = new WebSocket(import.meta.env.VITE_REACT_APP_WS_URL);
   }
 
   send(type: string, payload: any) {
