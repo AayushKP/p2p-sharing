@@ -17,7 +17,7 @@ A peer-to-peer file sharing application built with React, TypeScript, WebRTC, an
 ```
 ┌─────────────┐                                    ┌─────────────┐
 │   User A    │◄──────── WebRTC DataChannel ──────►│   User B    │
-│  (Browser)  │              (P2P Transfer)         │  (Browser)  │
+│  (Browser)  │              (P2P Transfer)        |  (Browser)  │
 └──────┬──────┘                                    └──────┬──────┘
        │                                                  │
        │              WebSocket (Signaling Only)          │
