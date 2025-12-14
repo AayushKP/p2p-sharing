@@ -1,8 +1,10 @@
 import { WebSocketServer } from "ws";
 import { v4 as uuid } from "uuid";
 import type { User } from "./types.js";
+import dotenv from "dotenv";
 
-const wss = new WebSocketServer({ port: 5000 });
+dotenv.config();
+const wss = new WebSocketServer({ port: Number(process.env["PORT"]) || 5000 });
 
 let users: User[] = [];
 
@@ -115,4 +117,4 @@ wss.on("connection", (ws) => {
   });
 });
 
-console.log("WebSocket signaling server running on ws://localhost:5000");
+console.log("WebSocket signaling server running");
