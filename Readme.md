@@ -218,6 +218,57 @@ VITE_WS_URL=ws://localhost:3001    # WebSocket server URL
 
 **Note**: In production, use `wss://` (secure WebSocket) instead of `ws://`
 
+## Server API Changes
+
+### Enhanced Device Information Tracking
+
+The server now tracks and broadcasts device information for better user identification:
+
+- **Device Name**: Custom name set by user
+- **Device Model**: Model information of the device
+- **Manufacturer**: Device manufacturer information
+
+### New WebSocket Message Types
+
+#### Client → Server
+
+| Message Type | Payload | Description |
+|---|---|---|
+| `register-device` | `{ deviceInfo: { deviceName, deviceModel, manufacturer } }` | Register device details on connection |
+| `request-connection` | `{ to: userId }` | Send connection request to another user |
+| `accept-connection` | `{ from: userId }` | Accept an incoming connection request |
+| `offer` | `{ to: userId, sdp }` | WebRTC SDP offer |
+| `answer` | `{ to: userId, sdp }` | WebRTC SDP answer |
+| `ice-candidate` | `{ to: userId, candidate }` | ICE candidate for NAT traversal |
+| `peer-disconnect` | `{ to: userId }` | Notify peer of disconnection |
+| `connection-timeout` | `{ to: userId }` | Signal connection timeout |
+| `cancel-connection` | `{ to: userId }` | Cancel pending connection request |
+
+#### Server → Client
+
+| Message Type | Payload | Description |
+|---|---|---|
+| `your-id` | `{ id: string }` | Client's unique identifier |
+| `online-users` | `{ users: Array<{ id, deviceName, deviceModel, manufacturer }> }` | List of online peers with device info |
+| `incoming-request` | `{ from: userId, deviceInfo }` | Incoming connection request from peer |
+| `webrtc-start` | `{ roomId, otherUser, isCaller }` | Signal to start WebRTC handshake |
+| `offer` | `{ from: userId, sdp }` | Relay WebRTC offer |
+| `answer` | `{ from: userId, sdp }` | Relay WebRTC answer |
+| `ice-candidate` | `{ from: userId, candidate }` | Relay ICE candidate |
+| `peer-disconnect` | `{ from: userId }` | Peer has disconnected |
+| `connection-timeout` | `{ from: userId }` | Peer connection timeout |
+| `cancel-connection` | `{ from: userId }` | Peer cancelled connection |
+
+### Health Check Endpoint
+
+The server provides a `/health` endpoint for monitoring:
+
+```bash
+curl http://localhost:3001/health
+# Returns: OK (HTTP 200)
+```
+
 ---
 
 Made with React, TypeScript, and WebRTC
+

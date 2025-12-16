@@ -1,6 +1,6 @@
 import { WebSocketServer } from "ws";
 import { v4 as uuid } from "uuid";
-import type { User } from "./types.js";
+import type { UserWithDeviceDetails } from "./types.js";
 import dotenv from "dotenv";
 import http from "http";
 
@@ -20,13 +20,18 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 
-let users: User[] = [];
+let users: UserWithDeviceDetails[] = [];
 
 function broadcastOnlineUsers() {
   users.forEach((user) => {
     const filtered = users
       .filter((u) => u.id !== user.id)
-      .map((u) => ({ id: u.id }));
+      .map((u) => ({ 
+        id: u.id,
+        deviceName: u.deviceInfo?.deviceName,
+        deviceModel: u.deviceInfo?.deviceModel,
+        manufacturer: u.deviceInfo?.manufacturer,
+       }));
 
     user.ws.send(
       JSON.stringify({
@@ -38,7 +43,7 @@ function broadcastOnlineUsers() {
 }
 
 wss.on("connection", (ws) => {
-  const newUser: User = { id: uuid(), ws };
+  const newUser: UserWithDeviceDetails = { id: uuid(), ws };
   users.push(newUser);
   console.log("New connection:", newUser.id);
   newUser.ws.send(
@@ -54,6 +59,15 @@ wss.on("connection", (ws) => {
   ws.on("message", (message) => {
     const data = JSON.parse(message.toString());
 
+    if (data.type === "register-device") {
+      const user = users.find((u) => u.id === newUser.id);
+      if (user && data.deviceInfo) {
+        user.deviceInfo = data.deviceInfo;
+        console.log(`Device registered for ${user.id}:`, data.deviceInfo);
+        broadcastOnlineUsers();
+      }
+    }
+
     if (data.type === "request-connection") {
       const target = users.find((u) => u.id === data.to);
       if (target) {
@@ -61,6 +75,7 @@ wss.on("connection", (ws) => {
           JSON.stringify({
             type: "incoming-request",
             from: newUser.id,
+            deviceInfo: newUser.deviceInfo,
           })
         );
       }
@@ -122,6 +137,42 @@ wss.on("connection", (ws) => {
           candidate: data.candidate,
         })
       );
+    }
+
+    if (data.type === "peer-disconnect") {
+      const target = users.find((u) => u.id === data.to);
+      if (target) {
+        target.ws.send(
+          JSON.stringify({
+            type: "peer-disconnect",
+            from: newUser.id,
+          })
+        );
+      }
+    }
+
+    if (data.type === "connection-timeout") {
+      const target = users.find((u) => u.id === data.to);
+      if (target) {
+        target.ws.send(
+          JSON.stringify({
+            type: "connection-timeout",
+            from: newUser.id,
+          })
+        );
+      }
+    }
+
+    if (data.type === "cancel-connection") {
+      const target = users.find((u) => u.id === data.to);
+      if (target) {
+        target.ws.send(
+          JSON.stringify({
+            type: "cancel-connection",
+            from: newUser.id,
+          })
+        );
+      }
     }
   });
 
