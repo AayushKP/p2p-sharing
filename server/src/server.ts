@@ -2,9 +2,21 @@ import { WebSocketServer } from "ws";
 import { v4 as uuid } from "uuid";
 import type { User } from "./types.js";
 import dotenv from "dotenv";
+import http from "http";
 
 dotenv.config();
-const wss = new WebSocketServer({ port: Number(process.env["PORT"]) || 5000 });
+
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200);
+    res.end("OK");
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
+const wss = new WebSocketServer({ server });
 
 let users: User[] = [];
 
@@ -117,4 +129,10 @@ wss.on("connection", (ws) => {
   });
 });
 
-console.log("WebSocket signaling server running");
+console.log(
+  "WebSocket signaling server running on port " + (process.env["PORT"] || 5000)
+);
+
+server.listen(() => {
+  console.log("HTTP + WebSocket server running");
+});
