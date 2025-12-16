@@ -75,7 +75,8 @@ copy .env.example .env
 PORT=3001
 
 # Start the server
-npm run dev
+npm run build
+npm start
 ```
 
 The WebSocket server will start and listen for connections on port 3001. Note that this is a WebSocket server, not an HTTP server, so you won't be able to access it via a browser at `http://localhost:3001`.
