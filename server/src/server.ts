@@ -6,6 +6,8 @@ import http from "http";
 
 dotenv.config();
 
+const PORT = Number(process.env["PORT"] ?? 5000);
+
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
     res.writeHead(200);
@@ -133,6 +135,6 @@ console.log(
   "WebSocket signaling server running on port " + (process.env["PORT"] || 5000)
 );
 
-server.listen(() => {
-  console.log("HTTP + WebSocket server running");
+server.listen(PORT, () => {
+  console.log("HTTP + WebSocket server running on port " + PORT);
 });
