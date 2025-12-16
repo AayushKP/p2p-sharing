@@ -158,53 +158,53 @@ export class WebRTCManager {
   // SAFE file sending (only when DataChannel is open)
   async sendFile(file: File) {
     if (!this.dataChannel || !this.isChannelOpen) {
-      console.warn("[RTC] DataChannel not open yet");
-      return;
+      throw new Error("DataChannel not open");
     }
-
-    const meta: FileMeta = {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    };
-
-    console.log("[RTC] Sending META");
-    this.dataChannel.send(JSON.stringify({ type: "META", meta }));
-
-    const buffer = await file.arrayBuffer();
-    const chunkSize = 64 * 1024; // 64KB
-    let offset = 0;
 
     const channel = this.dataChannel;
 
-    // backpressure threshold (1MB is safe)
-    channel.bufferedAmountLowThreshold = 1024 * 1024;
+    // Send metadata first
+    channel.send(
+      JSON.stringify({
+        type: "META",
+        meta: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        },
+      })
+    );
+
+    let offset = 0;
+    const CHUNK_SIZE = 64 * 1024; // 64 KB
+    const LOW_WATER = 1 * 1024 * 1024; // 1 MB
+    const HIGH_WATER = 8 * 1024 * 1024; // 8 MB
+
+    channel.bufferedAmountLowThreshold = LOW_WATER;
 
     return new Promise<void>((resolve) => {
-      const sendChunk = () => {
-        while (
-          offset < buffer.byteLength &&
-          channel.bufferedAmount < channel.bufferedAmountLowThreshold
-        ) {
-          const chunk = buffer.slice(offset, offset + chunkSize);
-          channel.send(chunk);
-          offset += chunk.byteLength;
+      const pump = async () => {
+        while (offset < file.size && channel.bufferedAmount < HIGH_WATER) {
+          const slice = file.slice(offset, offset + CHUNK_SIZE);
+          const buffer = await slice.arrayBuffer();
 
-          this.onSendProgress?.(Math.floor((offset / buffer.byteLength) * 100));
+          channel.send(buffer);
+          offset += buffer.byteLength;
+
+          this.onSendProgress?.(Math.floor((offset / file.size) * 100));
         }
 
-        if (offset < buffer.byteLength) {
-          // wait for buffer to drain
-          channel.onbufferedamountlow = sendChunk;
+        if (offset < file.size) {
+          // Resume ONLY when buffer drains below LOW_WATER
+          channel.onbufferedamountlow = pump;
         } else {
-          console.log("[RTC] Sending DONE");
           channel.send(JSON.stringify({ type: "DONE" }));
           channel.onbufferedamountlow = null;
           resolve();
         }
       };
 
-      sendChunk();
+      pump();
     });
   }
 }
