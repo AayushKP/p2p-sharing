@@ -166,24 +166,51 @@ p2psharing/
 9. File transfer happens directly between peers
 ```
 
-### File Transfer Protocol
+### File Transfer Protocol:
+
+### Sending Process
 
 ```
 1. Sender selects file
    ↓
-2. Send META message (filename, size, type)
+2. Validate DataChannel is open
    ↓
-3. Split file into 64KB chunks
+3. Send META message with file info (name, size, type)
    ↓
-4. Send chunks sequentially via DataChannel
+4. Read file in 64KB chunks using FileReader
    ↓
-5. Monitor buffer with backpressure handling
+5. Send each chunk as ArrayBuffer via DataChannel
    ↓
-6. Send DONE message when complete
+6. Monitor bufferedAmount for backpressure
+   ├── If buffer > 1MB threshold, pause sending
+   └── Resume when onbufferedamountlow fires
    ↓
-7. Receiver reconstructs file from chunks
+7. Report progress via onSendProgress callback
    ↓
-8. User downloads the file
+8. Send DONE message when all chunks sent
+```
+
+### Receiving Process
+
+```
+1. Receive META message
+   ├── Store file metadata (name, size, type)
+   └── Initialize empty buffer array
+   ↓
+2. Receive binary chunks
+   ├── Convert ArrayBuffer to Uint8Array
+   ├── Push to receivedBuffers array
+   ├── Track receivedSize
+   └── Report progress via onReceiveProgress callback
+   ↓
+3. Receive DONE message
+   ├── Create Blob from all chunks
+   ├── Create File object with original filename
+   └── Trigger onFileReceived callback
+   ↓
+4. UI creates download URL via URL.createObjectURL()
+   ↓
+5. User clicks download button to save file
 ```
 
 ## Usage
