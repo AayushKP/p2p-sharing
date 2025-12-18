@@ -22,6 +22,14 @@ export default function FileTransfer() {
     rtc.onFileReceived = (file) => {
       setReceivedFile(file);
     };
+
+    rtc.onDisconnected = () => {
+      setChannelReady(false);
+      setSendProgress(0);
+      setReceiveProgress(0);
+      setReceivedFile(null);
+      alert("❌ Peer disconnected");
+    };
   }, [rtc]);
 
   function handleSendFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,7 +110,6 @@ export default function FileTransfer() {
           <p className="text-gray-600">
             📥 Waiting to receive file from sender
           </p>
-
           {receiveProgress > 0 && (
             <div>
               <div className="flex justify-between text-sm mb-1">
@@ -117,7 +124,12 @@ export default function FileTransfer() {
               </div>
             </div>
           )}
-
+          {/* STATUS & DOWNLOAD */}
+          {!channelReady && (
+            <p className="text-red-600 text-sm font-semibold">
+              🔴 Disconnected
+            </p>
+          )}
           {receivedFile && (
             <div className="border rounded-lg p-4 bg-green-50 space-y-2">
               <p className="font-semibold text-green-700">✅ File received</p>

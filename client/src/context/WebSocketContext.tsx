@@ -32,7 +32,6 @@ export const useWS = () => useContext(WSContext);
 
 export function WSProvider({ children }: { children: React.ReactNode }) {
   const [ws] = useState(() => new WSClient());
-
   const [myId, setMyId] = useState<string>("");
   const [users, setUsers] = useState<User[]>([]);
   const [incomingRequest, setIncomingRequest] = useState<string | null>(null);
@@ -43,6 +42,18 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
   const [targetUser, setTargetUser] = useState<string | null>(null);
 
   const [rtc, setRtc] = useState<WebRTCManager | null>(null);
+
+  // handle user disconnects
+  useEffect(() => {
+    if (!targetUser || !connectedRoom) return;
+
+    const stillOnline = users.some((u) => u.id === targetUser);
+    if (!stillOnline) {
+      rtc?.peer.close();
+      setRtc(null);
+      setConnectedRoom(null);
+    }
+  }, [users]);
 
   useEffect(() => {
     ws.ws.onmessage = async (event) => {
@@ -63,6 +74,20 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
       // icoming connection request(from another user)
       if (data.type === "incoming-request") {
         setIncomingRequest(data.from);
+        return;
+      }
+
+      // peer disconnected or connection ended
+      if (
+        data.type === "peer-disconnect" ||
+        data.type === "connection-timeout" ||
+        data.type === "cancel-connection"
+      ) {
+        rtc?.peer.close();
+        setRtc(null);
+        setConnectedRoom(null);
+        setIncomingRequest(null);
+        setIsCaller(false);
         return;
       }
 

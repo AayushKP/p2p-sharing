@@ -23,6 +23,9 @@ export class WebRTCManager {
   // callback fired when the full file is received
   onFileReceived: ((file: File) => void) | null = null;
 
+  // callback fired when the client is disconnected
+  onDisconnected: (() => void) | null = null;
+
   // internal buffers for receiving file chunks
   private receivedBuffers: Uint8Array[] = [];
   private receivedSize = 0;
@@ -53,6 +56,20 @@ export class WebRTCManager {
       console.log("[RTC] DataChannel received");
       this.dataChannel = event.channel;
       this.setupReceiverChannel();
+    };
+
+    // Disconnection or failed cases handling
+    this.peer.onconnectionstatechange = () => {
+      const state = this.peer.connectionState;
+      console.log("[RTC] State:", state);
+
+      if (
+        state === "disconnected" ||
+        state === "failed" ||
+        state === "closed"
+      ) {
+        this.onDisconnected?.();
+      }
     };
   }
 
