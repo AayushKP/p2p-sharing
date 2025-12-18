@@ -26,12 +26,12 @@ function broadcastOnlineUsers() {
   users.forEach((user) => {
     const filtered = users
       .filter((u) => u.id !== user.id)
-      .map((u) => ({ 
+      .map((u) => ({
         id: u.id,
         deviceName: u.deviceInfo?.deviceName,
         deviceModel: u.deviceInfo?.deviceModel,
         manufacturer: u.deviceInfo?.manufacturer,
-       }));
+      }));
 
     user.ws.send(
       JSON.stringify({
@@ -169,6 +169,18 @@ wss.on("connection", (ws) => {
         target.ws.send(
           JSON.stringify({
             type: "cancel-connection",
+            from: newUser.id,
+          })
+        );
+      }
+    }
+
+    if (data.type === "reject-connection") {
+      const target = users.find((u) => u.id === data.to);
+      if (target) {
+        target.ws.send(
+          JSON.stringify({
+            type: "connection-rejected",
             from: newUser.id,
           })
         );

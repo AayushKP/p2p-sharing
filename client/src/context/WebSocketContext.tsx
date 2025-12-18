@@ -15,6 +15,7 @@ interface WSContextType {
   rtc: WebRTCManager | null;
   sendConnectionRequest: (to: string) => void;
   acceptRequest: (from: string) => void;
+  rejectRequest: (from: string) => void;
 }
 
 const WSContext = createContext<WSContextType>({
@@ -26,6 +27,7 @@ const WSContext = createContext<WSContextType>({
   rtc: null,
   sendConnectionRequest: () => {},
   acceptRequest: () => {},
+  rejectRequest: () => {},
 });
 
 export const useWS = () => useContext(WSContext);
@@ -71,7 +73,7 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // icoming connection request(from another user)
+      // incoming connection request(from another user)
       if (data.type === "incoming-request") {
         setIncomingRequest(data.from);
         return;
@@ -119,6 +121,16 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // connection request rejected by receiver
+      if (data.type === "connection-rejected") {
+        alert("Connection request rejected");
+        setIsCaller(false);
+        setConnectedRoom(null);
+        setTargetUser(null);
+        setRtc(null);
+        return;
+      }
+
       // receiver sends in response to caller
       if (data.type === "offer" && rtc) {
         await rtc.setRemoteDescription(data.sdp);
@@ -158,6 +170,11 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
     setIncomingRequest(null);
   }
 
+  function rejectRequest(from: string) {
+    ws.send("reject-connection", { to: from });
+    setIncomingRequest(null);
+  }
+
   return (
     <WSContext.Provider
       value={{
@@ -169,6 +186,7 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
         rtc,
         sendConnectionRequest,
         acceptRequest,
+        rejectRequest,
       }}
     >
       {children}

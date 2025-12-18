@@ -9,6 +9,7 @@ export default function App() {
     isCaller,
     sendConnectionRequest,
     acceptRequest,
+    rejectRequest,
     myId,
   } = useWS();
 
@@ -121,7 +122,9 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => {}}
+                onClick={() => {
+                  rejectRequest(incomingRequest);
+                }}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
               >
                 Reject
