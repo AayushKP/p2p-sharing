@@ -20,7 +20,7 @@ export default function P2PApp() {
   return (
     <div className="h-screen flex flex-col md:flex-row bg-gray-100 text-gray-800 overflow-hidden">
       {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b p-4 flex items-center justify-between z-20 sticky top-0">
+      <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between z-20 sticky top-0">
          <h1 className="text-xl font-bold">P2P Share</h1>
          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-gray-100 rounded-lg">
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}

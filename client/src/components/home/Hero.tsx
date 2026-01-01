@@ -19,7 +19,7 @@ export default function Hero() {
           className="flex items-center justify-center gap-2"
         >
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-blue-400 backdrop-blur-sm">
-            v2.0 Now Available
+            v1.0 is Live 
           </span>
         </motion.div>
 
@@ -29,8 +29,7 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-gradient-to-br from-white to-gray-400 bg-clip-text text-5xl font-bold tracking-tight text-transparent md:text-7xl"
         >
-          Share files. <br />
-          <span className="text-white">Directly.</span>
+          Share files.Directly. <br />
         </motion.h1>
 
         <motion.p
