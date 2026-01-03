@@ -33,9 +33,7 @@ export default function P2PApp() {
       <div className="md:hidden bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between z-20 sticky top-0">
         <div className="flex items-center gap-2">
           <Share2 className="text-blue-500" size={20} />
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            P2P Share
-          </h1>
+          <h1 className="text-xl font-bold font-mono">Peerly</h1>
         </div>
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
