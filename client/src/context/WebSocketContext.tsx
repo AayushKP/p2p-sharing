@@ -13,9 +13,12 @@ interface WSContextType {
   connectedRoom: string | null;
   isCaller: boolean;
   rtc: WebRTCManager | null;
+  targetUser: string | null;
   sendConnectionRequest: (to: string) => void;
   acceptRequest: (from: string) => void;
   rejectRequest: (from: string) => void;
+  cancelConnectionRequest: () => void;
+  disconnectPeer: () => void;
 }
 
 const WSContext = createContext<WSContextType>({
@@ -25,9 +28,12 @@ const WSContext = createContext<WSContextType>({
   connectedRoom: null,
   isCaller: false,
   rtc: null,
+  targetUser: null,
   sendConnectionRequest: () => {},
   acceptRequest: () => {},
   rejectRequest: () => {},
+  cancelConnectionRequest: () => {},
+  disconnectPeer: () => {},
 });
 
 export const useWS = () => useContext(WSContext);
@@ -40,7 +46,6 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
   const [connectedRoom, setConnectedRoom] = useState<string | null>(null);
 
   const [isCaller, setIsCaller] = useState<boolean>(false);
-  //@ts-ignore
   const [targetUser, setTargetUser] = useState<string | null>(null);
 
   const [rtc, setRtc] = useState<WebRTCManager | null>(null);
@@ -82,14 +87,22 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
       // peer disconnected or connection ended
       if (
         data.type === "peer-disconnect" ||
-        data.type === "connection-timeout" ||
-        data.type === "cancel-connection"
+        data.type === "connection-timeout"
       ) {
         rtc?.peer.close();
         setRtc(null);
         setConnectedRoom(null);
         setIncomingRequest(null);
         setIsCaller(false);
+        setTargetUser(null);
+        return;
+      }
+
+      // sender cancelled the connection request
+      if (data.type === "cancel-connection") {
+        alert("Connection request was cancelled by the sender.");
+        setIncomingRequest(null);
+        setTargetUser(null);
         return;
       }
 
@@ -175,6 +188,26 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
     setIncomingRequest(null);
   }
 
+  function cancelConnectionRequest() {
+    if (targetUser) {
+      ws.send("cancel-connection", { to: targetUser });
+    }
+    setIsCaller(false);
+    setTargetUser(null);
+  }
+
+  function disconnectPeer() {
+    if (targetUser) {
+      ws.send("peer-disconnect", { to: targetUser });
+    }
+    rtc?.peer.close();
+    setRtc(null);
+    setConnectedRoom(null);
+    setIsCaller(false);
+    setTargetUser(null);
+    setIncomingRequest(null);
+  }
+
   return (
     <WSContext.Provider
       value={{
@@ -184,9 +217,12 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
         connectedRoom,
         isCaller,
         rtc,
+        targetUser,
         sendConnectionRequest,
         acceptRequest,
         rejectRequest,
+        cancelConnectionRequest,
+        disconnectPeer,
       }}
     >
       {children}
