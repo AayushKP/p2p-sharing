@@ -59,7 +59,7 @@ export default function P2PApp() {
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Share2 className="text-blue-500" size={24} />
             </div>
-            <h1 className="text-xl font-bold">P2P Share</h1>
+            <h1 className="text-xl font-bold font-mono">Peerly</h1>
           </div>
           <p className="text-sm text-gray-500 ml-1">Secure WebRTC File Transfer</p>
         </div>
