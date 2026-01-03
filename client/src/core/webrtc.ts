@@ -20,11 +20,19 @@ export class WebRTCManager {
   // callback to track receiving progress (0–100)
   onReceiveProgress: ((percent: number) => void) | null = null;
 
+  // callback fired when the connection fails
+  onConnectionFailed: (() => void) | null = null;
+
   // callback fired when the full file is received
   onFileReceived: ((file: File) => void) | null = null;
 
   // callback fired when the client is disconnected
   onDisconnected: (() => void) | null = null;
+
+  //callback fired when the DataChannel is closed
+  onClose: (() => void) | null = null;
+
+  private wasEverConnected: boolean = false; // to track failure of connections
 
   // internal buffers for receiving file chunks
   private receivedBuffers: Uint8Array[] = [];
@@ -61,14 +69,15 @@ export class WebRTCManager {
     // Disconnection or failed cases handling
     this.peer.onconnectionstatechange = () => {
       const state = this.peer.connectionState;
-      console.log("[RTC] State:", state);
+      console.log("[RTC] PC state:", state);
 
-      if (
-        state === "disconnected" ||
-        state === "failed" ||
-        state === "closed"
-      ) {
-        this.onDisconnected?.();
+      if (state === "failed" || state === "closed") {
+        if (this.wasEverConnected) {
+          this.isChannelOpen = false;
+          this.onDisconnected?.();
+        } else {
+          this.onConnectionFailed?.();
+        }
       }
     };
   }
@@ -87,7 +96,17 @@ export class WebRTCManager {
     this.dataChannel.onopen = () => {
       console.log("[RTC] Sender DataChannel OPEN");
       this.isChannelOpen = true;
+      this.wasEverConnected = true;
       this.onConnected?.();
+    };
+
+    this.dataChannel.onclose = () => {
+      console.log("[RTC] Sender DataChannel CLOSED");
+
+      if (this.wasEverConnected) {
+        this.isChannelOpen = false;
+        this.onDisconnected?.();
+      }
     };
   }
 
@@ -99,6 +118,7 @@ export class WebRTCManager {
     this.dataChannel.onopen = () => {
       console.log("[RTC] Receiver DataChannel OPEN");
       this.isChannelOpen = true;
+      this.wasEverConnected = true;
       this.onConnected?.();
     };
 
@@ -147,6 +167,15 @@ export class WebRTCManager {
           (this.receivedSize / this.incomingMeta.size) * 100
         );
         this.onReceiveProgress(percent);
+      }
+    };
+
+    this.dataChannel.onclose = () => {
+      console.log("[RTC] Receiver DataChannel CLOSED");
+
+      if (this.wasEverConnected) {
+        this.isChannelOpen = false;
+        this.onDisconnected?.();
       }
     };
   }
