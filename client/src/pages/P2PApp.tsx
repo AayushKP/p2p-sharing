@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useWS } from "../context/WebSocketContext";
+import { useWS, WSProvider } from "../context/WebSocketContext";
 import FileTransfer from "../components/FileTransfer";
 import {
   Menu,
@@ -13,7 +13,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-export default function P2PApp() {
+function P2PAppContent() {
   const {
     users,
     incomingRequest,
@@ -278,5 +278,13 @@ export default function P2PApp() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function P2PApp() {
+  return (
+    <WSProvider>
+      <P2PAppContent />
+    </WSProvider>
   );
 }
