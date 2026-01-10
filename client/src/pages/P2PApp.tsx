@@ -14,7 +14,6 @@ import {
   Copy,
   Check,
   Edit2,
-  LogOut,
 } from "lucide-react";
 
 function P2PAppContent() {
@@ -86,7 +85,7 @@ function P2PAppContent() {
 
         <div className="p-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-800">
           {/* Identity Card */}
-          <div className="mb-6 rounded-2xl bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-gray-700/50 p-5 shadow-xl backdrop-blur-md relative overflow-hidden group">
+          <div className="mb-6 rounded-2xl bg-linear-to-br from-gray-800/80 to-gray-900/80 border border-gray-700/50 p-5 shadow-xl backdrop-blur-md relative overflow-hidden group">
             {/* Ambient background glow */}
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all duration-500" />
 
@@ -94,7 +93,7 @@ function P2PAppContent() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
+                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
                     {myName.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
@@ -218,7 +217,7 @@ function P2PAppContent() {
       {/* Main */}
       <main className="flex-1 w-full bg-black relative flex flex-col">
         {/* Decorative background elements */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-blue-900/20 via-black to-black pointer-events-none" />
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 flex items-center justify-center relative z-10 w-full">
           {!connectedRoom && (
@@ -233,7 +232,7 @@ function P2PAppContent() {
                   </div>
 
                   <div className="space-y-4">
-                    <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                    <h2 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-white to-gray-400 bg-clip-text text-transparent">
                       Connect & Share
                     </h2>
                     <p className="text-gray-400 max-w-md mx-auto text-lg leading-relaxed">
