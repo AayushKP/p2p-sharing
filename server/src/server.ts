@@ -88,9 +88,6 @@ wss.on("connection", (ws, req) => {
     if (data.type === "request-connection") {
       const target = users.find((u) => u.id === data.to);
       if (target) {
-        console.log(
-          `Forwarding connection request from ${newUser.id} to ${target.id}`
-        );
         target.ws.send(
           JSON.stringify({
             type: "incoming-request",
@@ -99,8 +96,6 @@ wss.on("connection", (ws, req) => {
             deviceInfo: newUser.deviceInfo,
           })
         );
-      } else {
-        console.warn(`Target user ${data.to} not found for connection request`);
       }
     }
 
@@ -110,9 +105,6 @@ wss.on("connection", (ws, req) => {
       const requester = users.find((u) => u.id === data.from);
       const receiver = newUser; // B is newUser
 
-      console.log(
-        `Starting WebRTC between ${requester?.id} and ${receiver.id}`
-      );
       requester?.ws.send(
         JSON.stringify({
           type: "webrtc-start",
@@ -133,7 +125,6 @@ wss.on("connection", (ws, req) => {
     }
 
     if (data.type === "offer") {
-      console.log(`Forwarding offer from ${newUser.id} to ${data.to}`);
       const target = users.find((u) => u.id === data.to);
       target?.ws.send(
         JSON.stringify({
@@ -145,7 +136,6 @@ wss.on("connection", (ws, req) => {
     }
 
     if (data.type === "answer") {
-      console.log(`Forwarding answer from ${newUser.id} to ${data.to}`);
       const target = users.find((u) => u.id === data.to);
       target?.ws.send(
         JSON.stringify({
