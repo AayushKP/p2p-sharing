@@ -4,12 +4,15 @@ import { WebRTCManager } from "../core/webrtc";
 
 interface User {
   id: string;
+  name?: string;
 }
 
 interface WSContextType {
   myId: string;
+  myName: string;
   users: User[];
   incomingRequest: string | null;
+  incomingRequestName: string | null;
   connectedRoom: string | null;
   isCaller: boolean;
   rtc: WebRTCManager | null;
@@ -19,12 +22,15 @@ interface WSContextType {
   rejectRequest: (from: string) => void;
   cancelConnectionRequest: () => void;
   disconnectPeer: () => void;
+  setMyName: (name: string) => void;
 }
 
 const WSContext = createContext<WSContextType>({
   myId: "",
+  myName: "",
   users: [],
   incomingRequest: null,
+  incomingRequestName: null,
   connectedRoom: null,
   isCaller: false,
   rtc: null,
@@ -34,21 +40,41 @@ const WSContext = createContext<WSContextType>({
   rejectRequest: () => {},
   cancelConnectionRequest: () => {},
   disconnectPeer: () => {},
+  setMyName: () => {},
 });
 
 export const useWS = () => useContext(WSContext);
 
-export function WSProvider({ children }: { children: React.ReactNode }) {
-  const [ws] = useState(() => new WSClient());
+export function WSProvider({
+  children,
+  name,
+}: {
+  children: React.ReactNode;
+  name: string;
+}) {
+  const [ws] = useState(() => new WSClient(name));
   const [myId, setMyId] = useState<string>("");
+  const [myName, setMyNameState] = useState<string>(name);
   const [users, setUsers] = useState<User[]>([]);
   const [incomingRequest, setIncomingRequest] = useState<string | null>(null);
+  const [incomingRequestName, setIncomingRequestName] = useState<string | null>(
+    null
+  );
   const [connectedRoom, setConnectedRoom] = useState<string | null>(null);
 
   const [isCaller, setIsCaller] = useState<boolean>(false);
   const [targetUser, setTargetUser] = useState<string | null>(null);
 
   const [rtc, setRtc] = useState<WebRTCManager | null>(null);
+
+  // Function to update name (for edits)
+  function setMyName(newName: string) {
+    setMyNameState(newName);
+    localStorage.setItem("peerly-username", newName);
+    if (ws.ws.readyState === WebSocket.OPEN) {
+      ws.send("register-name", { name: newName });
+    }
+  }
 
   // handle user disconnects
   useEffect(() => {
@@ -81,6 +107,7 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
       // incoming connection request(from another user)
       if (data.type === "incoming-request") {
         setIncomingRequest(data.from);
+        setIncomingRequestName(data.fromName || null);
         return;
       }
 
@@ -212,8 +239,10 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
     <WSContext.Provider
       value={{
         myId,
+        myName,
         users,
         incomingRequest,
+        incomingRequestName,
         connectedRoom,
         isCaller,
         rtc,
@@ -223,6 +252,7 @@ export function WSProvider({ children }: { children: React.ReactNode }) {
         rejectRequest,
         cancelConnectionRequest,
         disconnectPeer,
+        setMyName,
       }}
     >
       {children}

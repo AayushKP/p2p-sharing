@@ -28,6 +28,7 @@ function broadcastOnlineUsers() {
       .filter((u) => u.id !== user.id)
       .map((u) => ({
         id: u.id,
+        name: u.name,
         deviceName: u.deviceInfo?.deviceName,
         deviceModel: u.deviceInfo?.deviceModel,
         manufacturer: u.deviceInfo?.manufacturer,
@@ -42,23 +43,29 @@ function broadcastOnlineUsers() {
   });
 }
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
+  // Parse name from URL query params
+  const url = new URL(req.url || "", `http://${req.headers.host}`);
+  const nameParam = url.searchParams.get("name");
+
   const newUser: UserWithDeviceDetails = { id: uuid(), ws };
+  if (nameParam) newUser.name = nameParam;
   users.push(newUser);
-  console.log("New connection:", newUser.id);
+  console.log("New connection:", newUser.id, "name:", nameParam);
+
   newUser.ws.send(
     JSON.stringify({
       type: "your-id",
       id: newUser.id,
+      name: newUser.name,
     })
   );
-  console.log("Assigned ID:", newUser.id);
 
   broadcastOnlineUsers();
 
   ws.on("message", (message) => {
     const data = JSON.parse(message.toString());
-
+    //for mobile device registration
     if (data.type === "register-device") {
       const user = users.find((u) => u.id === newUser.id);
       if (user && data.deviceInfo) {
@@ -68,16 +75,32 @@ wss.on("connection", (ws) => {
       }
     }
 
+    // Update name (for name changes)
+    if (data.type === "register-name") {
+      const user = users.find((u) => u.id === newUser.id);
+      if (user && data.name) {
+        user.name = data.name;
+        console.log(`Name updated for ${user.id}:`, data.name);
+        broadcastOnlineUsers();
+      }
+    }
+
     if (data.type === "request-connection") {
       const target = users.find((u) => u.id === data.to);
       if (target) {
+        console.log(
+          `Forwarding connection request from ${newUser.id} to ${target.id}`
+        );
         target.ws.send(
           JSON.stringify({
             type: "incoming-request",
             from: newUser.id,
+            fromName: newUser.name,
             deviceInfo: newUser.deviceInfo,
           })
         );
+      } else {
+        console.warn(`Target user ${data.to} not found for connection request`);
       }
     }
 
@@ -87,6 +110,9 @@ wss.on("connection", (ws) => {
       const requester = users.find((u) => u.id === data.from);
       const receiver = newUser; // B is newUser
 
+      console.log(
+        `Starting WebRTC between ${requester?.id} and ${receiver.id}`
+      );
       requester?.ws.send(
         JSON.stringify({
           type: "webrtc-start",
@@ -107,6 +133,7 @@ wss.on("connection", (ws) => {
     }
 
     if (data.type === "offer") {
+      console.log(`Forwarding offer from ${newUser.id} to ${data.to}`);
       const target = users.find((u) => u.id === data.to);
       target?.ws.send(
         JSON.stringify({
@@ -118,6 +145,7 @@ wss.on("connection", (ws) => {
     }
 
     if (data.type === "answer") {
+      console.log(`Forwarding answer from ${newUser.id} to ${data.to}`);
       const target = users.find((u) => u.id === data.to);
       target?.ws.send(
         JSON.stringify({

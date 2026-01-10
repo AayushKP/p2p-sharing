@@ -4,6 +4,7 @@ interface User {
 }
 
 export interface UserWithDeviceDetails extends User {
+  name?: string;
   deviceInfo?: {
     deviceName?: string;
     deviceModel?: string;

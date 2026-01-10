@@ -11,12 +11,17 @@ import {
   Zap,
   MousePointerClick,
   ArrowRight,
+  Copy,
+  Check,
+  Edit2,
+  LogOut,
 } from "lucide-react";
 
 function P2PAppContent() {
   const {
     users,
     incomingRequest,
+    incomingRequestName,
     connectedRoom,
     isCaller,
     sendConnectionRequest,
@@ -25,9 +30,13 @@ function P2PAppContent() {
     cancelConnectionRequest,
     disconnectPeer,
     myId,
+    myName,
+    setMyName,
   } = useWS();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameInput, setEditNameInput] = useState(myName);
 
   return (
     <div className="h-screen flex flex-col md:flex-row bg-black text-white overflow-hidden font-sans">
@@ -76,13 +85,89 @@ function P2PAppContent() {
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-800">
-          <div className="mb-6 rounded-xl bg-gray-800/50 border border-gray-700/50 p-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
-              <User size={16} className="text-blue-400" />
-              <span>Your Identity</span>
-            </div>
-            <div className="text-xs text-gray-500 bg-black/40 p-2 rounded border border-gray-800 break-all font-mono">
-              {myId}
+          {/* Identity Card */}
+          <div className="mb-6 rounded-2xl bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-gray-700/50 p-5 shadow-xl backdrop-blur-md relative overflow-hidden group">
+            {/* Ambient background glow */}
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all duration-500" />
+
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
+                    {myName.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-xs text-blue-400 font-medium tracking-wider uppercase mb-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Online
+                    </div>
+                    {!isEditingName ? (
+                      <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                        {myName}
+                        <button
+                          onClick={() => {
+                            setEditNameInput(myName);
+                            setIsEditingName(true);
+                          }}
+                          className="text-gray-500 hover:text-blue-400 transition-colors p-1 hover:bg-white/5 rounded-md"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      </h3>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <input
+                          type="text"
+                          value={editNameInput}
+                          onChange={(e) => setEditNameInput(e.target.value)}
+                          className="w-32 px-2 py-1 bg-black/40 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editNameInput.trim()) {
+                              setMyName(editNameInput.trim());
+                              setIsEditingName(false);
+                            } else if (e.key === "Escape") {
+                              setIsEditingName(false);
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            if (editNameInput.trim()) {
+                              setMyName(editNameInput.trim());
+                              setIsEditingName(false);
+                            }
+                          }}
+                          className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                        >
+                          <Check size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Your Device ID</span>
+                </div>
+                <div className="relative group/id">
+                  <div className="w-full bg-black/40 border border-gray-800 rounded-lg py-2.5 px-3 text-xs font-mono text-gray-400 flex items-center justify-between group-hover/id:border-gray-700 transition-colors">
+                    <span className="truncate mr-2 opacity-70 group-hover/id:opacity-100 transition-opacity">
+                      {myId}
+                    </span>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(myId)}
+                      className="text-gray-600 hover:text-white transition-colors"
+                      title="Copy ID"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -113,7 +198,7 @@ function P2PAppContent() {
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
                     <span className="text-sm font-medium text-gray-200">
-                      Peer User
+                      {u.name || "Peer User"}
                     </span>
                   </div>
                   <ArrowRight
@@ -251,11 +336,13 @@ function P2PAppContent() {
                   Incoming Request
                 </h3>
                 <p className="text-gray-400 text-sm mt-2 break-all px-4">
-                  <span className="text-white font-mono bg-gray-800 px-1 py-0.5 rounded">
-                    {incomingRequest}
+                  <span className="text-white font-medium">
+                    {incomingRequestName || "Someone"}
                   </span>{" "}
-                  <br />
                   wants to send you a file.
+                </p>
+                <p className="text-xs text-gray-500 font-mono mt-1">
+                  {incomingRequest}
                 </p>
               </div>
 
@@ -282,8 +369,64 @@ function P2PAppContent() {
 }
 
 export default function P2PApp() {
+  const [name, setName] = useState<string | null>(() => {
+    return localStorage.getItem("peerly-username");
+  });
+  const [nameInput, setNameInput] = useState("");
+
+  // If no name stored, show name dialog
+  if (!name) {
+    return (
+      <div className="h-screen bg-black flex items-center justify-center p-4">
+        <div className="bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+          <div className="p-6 space-y-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <User size={32} className="text-blue-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Welcome to Peerly
+              </h3>
+              <p className="text-gray-400 text-sm mt-2">
+                Enter your name to get started
+              </p>
+            </div>
+
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Your name"
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && nameInput.trim()) {
+                  localStorage.setItem("peerly-username", nameInput.trim());
+                  setName(nameInput.trim());
+                }
+              }}
+            />
+
+            <button
+              onClick={() => {
+                if (nameInput.trim()) {
+                  localStorage.setItem("peerly-username", nameInput.trim());
+                  setName(nameInput.trim());
+                }
+              }}
+              disabled={!nameInput.trim()}
+              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 transition-all"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <WSProvider>
+    <WSProvider name={name}>
       <P2PAppContent />
     </WSProvider>
   );
