@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { WSClient } from "../core/ws";
 import { WebRTCManager } from "../core/webrtc";
 
@@ -58,7 +58,7 @@ export function WSProvider({
   const [users, setUsers] = useState<User[]>([]);
   const [incomingRequest, setIncomingRequest] = useState<string | null>(null);
   const [incomingRequestName, setIncomingRequestName] = useState<string | null>(
-    null
+    null,
   );
   const [connectedRoom, setConnectedRoom] = useState<string | null>(null);
 
@@ -66,6 +66,7 @@ export function WSProvider({
   const [targetUser, setTargetUser] = useState<string | null>(null);
 
   const [rtc, setRtc] = useState<WebRTCManager | null>(null);
+  const rtcRef = useRef<WebRTCManager | null>(null);
 
   // Function to update name (for edits)
   function setMyName(newName: string) {
@@ -82,11 +83,12 @@ export function WSProvider({
 
     const stillOnline = users.some((u) => u.id === targetUser);
     if (!stillOnline) {
-      rtc?.peer.close();
+      rtcRef.current?.peer.close();
+      rtcRef.current = null;
       setRtc(null);
       setConnectedRoom(null);
     }
-  }, [users]);
+  }, [users, targetUser, connectedRoom]);
 
   useEffect(() => {
     ws.ws.onmessage = async (event) => {
@@ -116,7 +118,8 @@ export function WSProvider({
         data.type === "peer-disconnect" ||
         data.type === "connection-timeout"
       ) {
-        rtc?.peer.close();
+        rtcRef.current?.peer.close();
+        rtcRef.current = null;
         setRtc(null);
         setConnectedRoom(null);
         setIncomingRequest(null);
@@ -140,6 +143,7 @@ export function WSProvider({
         setIsCaller(data.isCaller);
 
         const connection = new WebRTCManager();
+        rtcRef.current = connection;
         setRtc(connection);
 
         connection.onIceCandidate = (candidate) => {
@@ -167,14 +171,15 @@ export function WSProvider({
         setIsCaller(false);
         setConnectedRoom(null);
         setTargetUser(null);
+        rtcRef.current = null;
         setRtc(null);
         return;
       }
 
       // receiver sends in response to caller
-      if (data.type === "offer" && rtc) {
-        await rtc.setRemoteDescription(data.sdp);
-        const answer = await rtc.createAnswer();
+      if (data.type === "offer" && rtcRef.current) {
+        await rtcRef.current.setRemoteDescription(data.sdp);
+        const answer = await rtcRef.current.createAnswer();
         ws.send("answer", {
           to: data.from,
           sdp: answer,
@@ -182,19 +187,19 @@ export function WSProvider({
         return;
       }
 
-      // caller sends in response to receiver)
-      if (data.type === "answer" && rtc) {
-        await rtc.setRemoteDescription(data.sdp);
+      // caller sends in response to receiver
+      if (data.type === "answer" && rtcRef.current) {
+        await rtcRef.current.setRemoteDescription(data.sdp);
         return;
       }
 
       //ice-candidate(both sides)
-      if (data.type === "ice-candidate" && rtc) {
-        await rtc.addIceCandidate(data.candidate);
+      if (data.type === "ice-candidate" && rtcRef.current) {
+        await rtcRef.current.addIceCandidate(data.candidate);
         return;
       }
     };
-  }, [ws, rtc]);
+  }, [ws]);
 
   // user-actions
   function sendConnectionRequest(to: string) {

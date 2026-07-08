@@ -47,7 +47,12 @@ function P2PAppContent() {
   }, [targetUser, users]);
 
   // STRICTLY filter out ourselves by BOTH ID and Name to ensure we don't show up as a peer node
-  const activePeers = users.filter((u) => u.id !== myId && u.name !== myName);
+  const filteredPeers = users.filter((u) => u.id !== myId && u.name !== myName);
+  
+  // Deduplicate peers by name (if a user has multiple tabs open, only show one node for them)
+  const activePeers = filteredPeers.filter(
+    (u, index, self) => index === self.findIndex((t) => t.name === u.name)
+  );
 
   // Compute stable radial positions for peers relative to the radar container (0-100%)
   const peerPositions = useMemo(() => {

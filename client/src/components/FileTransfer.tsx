@@ -58,6 +58,15 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
       setReceiveProgress(100);
     };
 
+    rtc.onReset = () => {
+      setSendProgress(0);
+      setReceiveProgress(0);
+      setReceivedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+
     rtc.onDisconnected = () => {
       setIsConnecting(false);
       setChannelReady(false);
@@ -84,6 +93,20 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
     a.download = receivedFile.name;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function resetTransfer() {
+    setSendProgress(0);
+    setReceiveProgress(0);
+    setReceivedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    
+    // Notify peer to reset their UI as well
+    if (rtc?.dataChannel?.readyState === "open") {
+      rtc.dataChannel.send(JSON.stringify({ type: "RESET" }));
+    }
   }
 
   // Determine state
@@ -151,9 +174,13 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
               onClick={() => fileInputRef.current?.click()}
               className="group relative flex flex-col items-center justify-center w-full h-56 rounded-2xl border border-dashed border-[#444] bg-[#0f0f0f] hover:bg-[#111] hover:border-accent transition-all cursor-pointer shadow-lg"
             >
-              <div className="p-4 rounded-xl bg-[#1a1a1a] border border-[#333] mb-4 group-hover:scale-110 group-hover:border-accent/40 transition-all duration-300">
-                <UploadCloud size={28} className="text-[#888] group-hover:text-accent transition-colors" />
-              </div>
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="p-4 rounded-xl bg-[#1a1a1a] border border-[#333] mb-4 group-hover:border-accent/40 transition-colors"
+              >
+                <UploadCloud size={28} className="text-accent" />
+              </motion.div>
               <p className="text-base font-bold text-white mb-1">Click or drag file to send</p>
               <p className="text-xs text-[#777]">Secure E2E transfer to {peerName}</p>
               <input
@@ -164,14 +191,14 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
               />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center w-full h-56 rounded-2xl border border-[#222] bg-[#0f0f0f] shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
-              <div className="relative">
-                <div className="absolute inset-0 rounded-full border border-emerald-500/20 animate-[pulse-ring_2s_ease-in-out_infinite]" />
-                <div className="p-4 rounded-xl bg-[#1a1a1a] border border-[#333] mb-4">
-                  <Download size={28} className="text-emerald-500" />
-                </div>
-              </div>
+            <div className="flex flex-col items-center justify-center w-full h-56 rounded-2xl border border-dashed border-[#444] bg-[#0f0f0f] shadow-lg relative">
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="p-4 rounded-xl bg-[#1a1a1a] border border-[#333] mb-4"
+              >
+                <Download size={28} className="text-emerald-500" />
+              </motion.div>
               <p className="text-base font-bold text-white mb-1">Ready to receive</p>
               <p className="text-xs text-[#777]">Waiting for {peerName} to send a file...</p>
             </div>
@@ -232,7 +259,6 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
           animate={{ opacity: 1, scale: 1 }}
           className="w-full rounded-2xl border border-[#222] bg-[#0f0f0f] p-8 text-center shadow-lg relative overflow-hidden"
         >
-          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
           <div className="w-16 h-16 rounded-xl bg-[#1a1a1a] border border-[#333] flex items-center justify-center mx-auto mb-5">
             <CheckCircle className="text-emerald-500" size={32} />
           </div>
@@ -247,15 +273,31 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
                   <p className="text-xs text-[#666] font-mono mt-0.5">{(receivedFile.size / 1024).toFixed(2)} KB</p>
                 </div>
               </div>
-              <button
-                onClick={handleDownload}
-                className="w-full py-3 rounded-lg bg-white text-black font-bold text-sm hover:bg-[#e6e6e6] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-              >
-                <Download size={16} /> Save File
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleDownload}
+                  className="w-full py-3 rounded-lg bg-white text-black font-bold text-sm hover:bg-[#e6e6e6] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                >
+                  <Download size={16} /> Save File
+                </button>
+                <button
+                  onClick={resetTransfer}
+                  className="w-full py-3 rounded-lg bg-transparent border border-[#333] text-white font-bold text-sm hover:bg-[#1a1a1a] transition-all flex items-center justify-center gap-2"
+                >
+                  Receive Another File
+                </button>
+              </div>
             </div>
           ) : (
-            <p className="text-sm text-[#777] mt-3">File successfully delivered to {peerName}.</p>
+            <div className="mt-6">
+              <p className="text-sm text-[#777] mb-6">File successfully delivered to {peerName}.</p>
+              <button
+                onClick={resetTransfer}
+                className="w-full py-3 rounded-lg bg-white text-black font-bold text-sm hover:bg-[#e6e6e6] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+              >
+                <UploadCloud size={16} /> Send Another File
+              </button>
+            </div>
           )}
         </motion.div>
       )}

@@ -26,6 +26,9 @@ export class WebRTCManager {
   // callback fired when the full file is received
   onFileReceived: ((file: File) => void) | null = null;
 
+  // callback fired when peer requests a reset for a new transfer
+  onReset: (() => void) | null = null;
+
   // callback fired when the client is disconnected
   onDisconnected: (() => void) | null = null;
 
@@ -100,6 +103,15 @@ export class WebRTCManager {
       this.onConnected?.();
     };
 
+    this.dataChannel.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "RESET") {
+          this.onReset?.();
+        }
+      }
+    };
+
     this.dataChannel.onclose = () => {
       console.log("[RTC] Sender DataChannel CLOSED");
 
@@ -134,6 +146,11 @@ export class WebRTCManager {
           this.incomingMeta = msg.meta;
           this.receivedBuffers = [];
           this.receivedSize = 0;
+        }
+
+        if (msg.type === "RESET") {
+          console.log("[RTC] RESET received");
+          this.onReset?.();
         }
 
         if (msg.type === "DONE" && this.incomingMeta) {
@@ -193,12 +210,23 @@ export class WebRTCManager {
     return answer;
   }
 
+  private pendingCandidates: RTCIceCandidateInit[] = [];
+
   async setRemoteDescription(sdp: RTCSessionDescriptionInit) {
     await this.peer.setRemoteDescription(new RTCSessionDescription(sdp));
+    // Flush any pending ICE candidates now that remote description is set
+    for (const candidate of this.pendingCandidates) {
+      await this.peer.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("[RTC] Pending ICE error:", e));
+    }
+    this.pendingCandidates = [];
   }
 
   async addIceCandidate(candidate: RTCIceCandidateInit) {
-    await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
+    if (this.peer.remoteDescription) {
+      await this.peer.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("[RTC] ICE error:", e));
+    } else {
+      this.pendingCandidates.push(candidate);
+    }
   }
 
   // SAFE file sending (only when DataChannel is open)
