@@ -1,16 +1,16 @@
 # P2P File Sharing Application
 
-A peer-to-peer file sharing application built with React, TypeScript, WebRTC, and WebSocket. Share files directly between browsers without uploading to any server.
+A peer-to-peer file sharing application built with React, TypeScript, WebRTC, and WebSocket. Share files directly between browsers with encrypted, serverless transfers.
 
 ## Features
 
-- **Secure P2P Transfer** - Files transfer directly between peers using WebRTC DataChannel
-- **Fast & Efficient** - No server bottleneck, direct peer-to-peer connection
-- **Real-time Progress** - Live upload/download progress tracking
+- **Direct P2P Transfer** - Files stream straight between browsers over a WebRTC DataChannel
+- **Encrypted by Default** - WebRTC secures every transfer in transit with DTLS encryption
+- **No Server Storage** - The signaling server only handles discovery and connection setup
+- **Large File Support** - Chunked transfer with backpressure handling keeps big files reliable
+- **Connection Control** - Accept or decline connection requests before a transfer starts
+- **Real-time Progress** - Live upload and download progress tracking for sender and receiver
 - **Multi-user Support** - See all online users and connect with any of them
-- **Simple UI** - Clean, intuitive interface built with React and TailwindCSS
-- **Large File Support** - Chunked transfer with backpressure handling
-- **Connection Requests** - Accept/reject connection requests with modal dialogs
 
 ## Architecture
 
@@ -143,6 +143,8 @@ p2psharing/
 
 ### Connection Flow
 
+Connection requests are placed into a small queue so signaling stays ordered and reliable. This prevents the issue where a connection would sometimes succeed and sometimes fail.
+
 ```
 1. User A connects to WebSocket server
    ↓
@@ -150,9 +152,9 @@ p2psharing/
    ↓
 3. Server broadcasts online users list
    ↓
-4. User A clicks on User B (sends connection request)
+4. User A clicks on User B (request is queued and sent)
    ↓
-5. User B accepts the request
+5. User B accepts the request from the queue
    ↓
 6. Server sends webrtc-start signal to both users
    ↓
@@ -228,6 +230,7 @@ p2psharing/
 - Currently supports one active connection per user
 - Disconnect current peer to connect with another user
 - Multiple transfers can happen sequentially
+- After a transfer completes, you can send or receive another file without refreshing the page
 
 ## Environment Variables
 
