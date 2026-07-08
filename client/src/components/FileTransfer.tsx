@@ -1,40 +1,62 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useWS } from "../context/WebSocketContext";
-import {
-  Upload,
-  Download,
-  FileText,
-  CheckCircle,
-  Loader2,
-  Share2,
-} from "lucide-react";
+import { motion } from "framer-motion";
+import { UploadCloud, CheckCircle, Loader2, Download, FileBox } from "lucide-react";
 
-export default function FileTransfer() {
+interface FileTransferProps {
+  peerName: string;
+  disconnectPeer: () => void;
+}
+
+export default function FileTransfer({ peerName, disconnectPeer }: FileTransferProps) {
   const { rtc, isCaller } = useWS();
   const [isConnecting, setIsConnecting] = useState(true);
   const [sendProgress, setSendProgress] = useState(0);
   const [receiveProgress, setReceiveProgress] = useState(0);
   const [receivedFile, setReceivedFile] = useState<File | null>(null);
   const [channelReady, setChannelReady] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!rtc) return;
+    
+    // Reset state on new connection
     setIsConnecting(true);
+    setConnectionError(false);
+    setChannelReady(false);
+    setSendProgress(0);
+    setReceiveProgress(0);
+    setReceivedFile(null);
+    
+    // 30s timeout for connection
+    const timeout = setTimeout(() => {
+      setIsConnecting(false);
+      setConnectionError(true);
+      setChannelReady(false);
+    }, 30000);
+
     rtc.onConnected = () => {
+      clearTimeout(timeout);
       setIsConnecting(false);
       setChannelReady(true);
+      setConnectionError(false);
     };
 
     rtc.onConnectionFailed = () => {
+      clearTimeout(timeout);
       setIsConnecting(false);
       setChannelReady(false);
-      alert("Unable to establish connection");
+      setConnectionError(true);
     };
 
     rtc.onSendProgress = setSendProgress;
     rtc.onReceiveProgress = setReceiveProgress;
 
-    rtc.onFileReceived = (file) => setReceivedFile(file);
+    rtc.onFileReceived = (file) => {
+      setReceivedFile(file);
+      setReceiveProgress(100);
+    };
 
     rtc.onDisconnected = () => {
       setIsConnecting(false);
@@ -42,9 +64,10 @@ export default function FileTransfer() {
       setSendProgress(0);
       setReceiveProgress(0);
       setReceivedFile(null);
-      alert("Peer disconnected");
     };
-  }, [rtc]);
+
+    return () => clearTimeout(timeout);
+  }, [rtc]); // Only depend on rtc, NOT channelReady
 
   function handleSendFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -63,166 +86,178 @@ export default function FileTransfer() {
     URL.revokeObjectURL(url);
   }
 
+  // Determine state
+  const isTransferring = (sendProgress > 0 && sendProgress < 100) || (receiveProgress > 0 && receiveProgress < 100);
+  const isComplete = sendProgress === 100 || receiveProgress === 100;
+
   return (
-    <div className="w-full max-w-md md:max-w-lg bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-8 relative overflow-hidden">
-      {/* Glow effect */}
-      <div className="absolute top-0 right-0 -mt-10 -mr-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gray-800 rounded-lg border border-gray-700">
-            <Share2 className="text-gray-300" size={20} />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-white">File Transfer</h3>
-            <p className="text-xs text-gray-500">Secure P2P Channel</p>
-          </div>
-        </div>
-
-        <span
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
-            isCaller
-              ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-              : "bg-green-500/10 text-green-400 border-green-500/20"
-          }`}
+    <div className="w-full relative font-sans">
+      {/* State: Connection Error */}
+      {connectionError && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full bg-[#0f0f0f] rounded-2xl border border-[#222] p-8 text-center shadow-lg relative overflow-hidden"
         >
-          {isCaller ? (
-            <>
-              <Upload size={12} /> Sender
-            </>
-          ) : (
-            <>
-              <Download size={12} /> Receiver
-            </>
-          )}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-950/50 p-3 rounded-lg border border-gray-800">
-        {channelReady ? (
-          <>
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-300">Channel secure & ready</span>
-          </>
-        ) : isConnecting ? (
-          <>
-            <Loader2 size={14} className="animate-spin text-yellow-500" />
-            <span>Establishing connection...</span>
-          </>
-        ) : (
-          <>
-            <div className="w-2 h-2 rounded-full bg-gray-500" />
-            <span>Not connected</span>
-          </>
-        )}
-      </div>
-
-      {isCaller && (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="block font-medium text-gray-300 text-sm">
-              Select file to send
-            </label>
-
-            <div className="relative group">
-              <input
-                type="file"
-                disabled={!channelReady}
-                onChange={handleSendFile}
-                className="block w-full text-sm text-gray-400
-                   file:mr-4 file:py-2.5 file:px-4
-                   file:rounded-lg file:border-0
-                   file:text-sm file:font-semibold
-                   file:bg-blue-600 file:text-white
-                   hover:file:bg-blue-500
-                   file:cursor-pointer file:transition-colors
-                   cursor-pointer
-                   bg-gray-800/50 rounded-lg border border-gray-700
-                 "
-              />
-            </div>
+          <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />
+          <div className="w-12 h-12 rounded-xl bg-[#1a1a1a] flex items-center justify-center mx-auto mb-4 border border-[#333]">
+            <span className="text-red-500 text-xl font-bold">!</span>
           </div>
-
-          {sendProgress > 0 && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-medium text-gray-400">
-                <span>Sending...</span>
-                <span>{sendProgress}%</span>
-              </div>
-              <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 h-full rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${sendProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+          <h3 className="text-lg font-bold text-white mb-1">Connection Timeout</h3>
+          <p className="text-sm text-[#888] mb-6">Failed to establish a secure tunnel with {peerName}.</p>
+          <button
+            onClick={disconnectPeer}
+            className="px-5 py-2.5 bg-[#1a1a1a] hover:bg-[#222] text-white rounded-lg text-sm font-semibold transition-colors border border-[#333]"
+          >
+            Go Back
+          </button>
+        </motion.div>
       )}
 
-      {!isCaller && (
-        <div className="space-y-6">
-          {!receivedFile && !receiveProgress && (
-            <div className="text-center py-8 border-2 border-dashed border-gray-800 rounded-2xl bg-gray-900/50">
-              <Loader2
-                size={32}
-                className="mx-auto text-gray-600 animate-spin mb-3"
+      {/* State: Connecting */}
+      {isConnecting && !connectionError && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full bg-[#0f0f0f] rounded-2xl border border-[#222] p-10 text-center shadow-lg relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent/0 via-accent to-accent/0 animate-pulse" />
+          <Loader2 className="animate-spin text-accent mb-5 mx-auto" size={32} />
+          <h3 className="text-lg font-bold text-white mb-1">Establishing Tunnel</h3>
+          <p className="text-sm text-[#777] font-mono">Negotiating DTLS 1.2 with {peerName}...</p>
+          
+          <div className="mt-8 flex justify-center">
+            <div className="h-1 w-40 bg-[#1a1a1a] rounded-full overflow-hidden">
+               <motion.div 
+                 className="h-full bg-accent rounded-full"
+                 animate={{ x: ["-100%", "100%"] }}
+                 transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                 style={{ width: "40%" }}
+               />
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* State: Ready to Send / Waiting to Receive */}
+      {channelReady && !isTransferring && !isComplete && !connectionError && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full"
+        >
+          {isCaller ? (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative flex flex-col items-center justify-center w-full h-56 rounded-2xl border border-dashed border-[#444] bg-[#0f0f0f] hover:bg-[#111] hover:border-accent transition-all cursor-pointer shadow-lg"
+            >
+              <div className="p-4 rounded-xl bg-[#1a1a1a] border border-[#333] mb-4 group-hover:scale-110 group-hover:border-accent/40 transition-all duration-300">
+                <UploadCloud size={28} className="text-[#888] group-hover:text-accent transition-colors" />
+              </div>
+              <p className="text-base font-bold text-white mb-1">Click or drag file to send</p>
+              <p className="text-xs text-[#777]">Secure E2E transfer to {peerName}</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleSendFile}
               />
-              <p className="text-gray-400 text-sm">
-                Waiting for sender to start...
-              </p>
             </div>
-          )}
-
-          {receiveProgress > 0 && receiveProgress < 100 && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-medium text-gray-400">
-                <span>Receiving...</span>
-                <span>{receiveProgress}%</span>
-              </div>
-              <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-green-600 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${receiveProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {receivedFile && (
-            <div className="border border-green-500/30 rounded-xl p-5 bg-green-500/5 space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-green-500/20 rounded-lg">
-                  <CheckCircle className="text-green-500" size={24} />
+          ) : (
+            <div className="flex flex-col items-center justify-center w-full h-56 rounded-2xl border border-[#222] bg-[#0f0f0f] shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full border border-emerald-500/20 animate-[pulse-ring_2s_ease-in-out_infinite]" />
+                <div className="p-4 rounded-xl bg-[#1a1a1a] border border-[#333] mb-4">
+                  <Download size={28} className="text-emerald-500" />
                 </div>
+              </div>
+              <p className="text-base font-bold text-white mb-1">Ready to receive</p>
+              <p className="text-xs text-[#777]">Waiting for {peerName} to send a file...</p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* State: Transferring */}
+      {isTransferring && !connectionError && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full rounded-2xl border border-[#222] bg-[#0f0f0f] p-8 text-center relative overflow-hidden shadow-lg"
+        >
+          {/* Animated data packets background (solid styling) */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="absolute top-1/2 -translate-y-1/2 w-32 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent"
+                style={{
+                  left: isCaller ? "0%" : "100%",
+                  animation: `flow 1.5s linear infinite`,
+                  animationDelay: `${i * 0.4}s`,
+                  animationDirection: isCaller ? "normal" : "reverse",
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="relative z-10">
+            <h3 className="text-lg font-bold text-white mb-1">
+              {isCaller ? `Sending to ${peerName}...` : `Receiving from ${peerName}...`}
+            </h3>
+            <p className="text-xs text-[#777] mb-6">AES-256 Encrypted Tunnel</p>
+            
+            <div className="mb-2 flex justify-between text-xs font-mono font-semibold">
+              <span className="text-[#888]">Progress</span>
+              <span className="text-accent">{isCaller ? sendProgress : receiveProgress}%</span>
+            </div>
+            
+            <div className="w-full h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+              <motion.div
+                className="h-full bg-accent rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${isCaller ? sendProgress : receiveProgress}%` }}
+                transition={{ ease: "linear", duration: 0.2 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* State: Complete */}
+      {isComplete && !connectionError && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full rounded-2xl border border-[#222] bg-[#0f0f0f] p-8 text-center shadow-lg relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
+          <div className="w-16 h-16 rounded-xl bg-[#1a1a1a] border border-[#333] flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="text-emerald-500" size={32} />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-1">Transfer Complete</h3>
+          
+          {receivedFile ? (
+            <div className="mt-6 text-left">
+              <div className="bg-[#0a0a0a] rounded-xl p-4 border border-[#222] flex items-center gap-4 mb-5">
+                <FileBox size={24} className="text-[#666]" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-green-400 text-sm">
-                    File Received Successfully
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <FileText
-                      size={14}
-                      className="text-gray-400 flex-shrink-0"
-                    />
-                    <p className="text-sm text-gray-300 truncate">
-                      {receivedFile.name}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 font-mono">
-                    {(receivedFile.size / 1024).toFixed(2)} KB
-                  </p>
+                  <p className="text-sm font-semibold text-white truncate">{receivedFile.name}</p>
+                  <p className="text-xs text-[#666] font-mono mt-0.5">{(receivedFile.size / 1024).toFixed(2)} KB</p>
                 </div>
               </div>
-
               <button
                 onClick={handleDownload}
-                className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-lg transition-all shadow-lg shadow-green-900/20 font-medium text-sm"
+                className="w-full py-3 rounded-lg bg-white text-black font-bold text-sm hover:bg-[#e6e6e6] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
               >
-                <Download size={16} /> Download File
+                <Download size={16} /> Save File
               </button>
             </div>
+          ) : (
+            <p className="text-sm text-[#777] mt-3">File successfully delivered to {peerName}.</p>
           )}
-        </div>
+        </motion.div>
       )}
     </div>
   );

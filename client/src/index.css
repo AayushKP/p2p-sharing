@@ -1,34 +1,99 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --color-background: #030712;
-  --color-surface: #111827;
-  --color-primary: #3b82f6;
-  --color-primary-glow: #60a5fa;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-background: #090909;
+  --color-card: #111111;
+  --color-elevated: #161616;
+  --color-accent: #4F8CFF;
+  --color-muted: #9CA3AF;
+  --color-subtle: #6B7280;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   font-family: var(--font-sans);
   background-color: var(--color-background);
-  color: white;
+  color: #ffffff;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  letter-spacing: -0.011em;
 }
 
-/* Custom Utilities for Glow Effects */
-@utility glow-text {
-  text-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+::selection {
+  background-color: rgba(79, 140, 255, 0.2);
 }
 
-@utility glow-box {
-  box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.3);
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #333; }
+
+/* Grid Background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 72px 72px;
 }
 
-@layer utilities {
-  .text-gradient {
-    background: linear-gradient(to right, #60a5fa, #a855f7);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+/* Glassmorphism */
+.glass {
+  background: rgba(17, 17, 17, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Glow button hover */
+.glow-btn {
+  position: relative;
+}
+.glow-btn:hover {
+  box-shadow: 0 0 24px rgba(79, 140, 255, 0.2);
+}
+
+/* Keyframes */
+@keyframes flow {
+  0% { left: 0%; opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { left: calc(100% - 8px); opacity: 0; }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-ring {
+  0% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.08); }
+  100% { opacity: 0.3; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.4); }
+}
+
+@keyframes tunnel-packet {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
 }

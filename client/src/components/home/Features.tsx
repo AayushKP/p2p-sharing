@@ -1,115 +1,142 @@
 import { motion } from "framer-motion";
 import {
-  ServerOff,
   Zap,
-  Lock,
+  ServerOff,
   HardDrive,
-  Activity,
+  Lock,
   UserCheck,
+  Activity,
 } from "lucide-react";
 import clsx from "clsx";
 
 const features = [
   {
     title: "Direct P2P Transfer",
-    desc: "Files move straight between browsers using WebRTC. No server storage involved.",
+    desc: "Files stream straight between browsers over WebRTC DataChannels. No intermediary server ever touches your data.",
+    metric: "0 servers",
     icon: Zap,
     className: "md:col-span-2 md:row-span-2",
+    large: true,
   },
   {
     title: "No Server Storage",
-    desc: "Files never touch a server. Data streams directly from peer to peer.",
+    desc: "Your files never leave the connection. Nothing is uploaded, cached, or stored anywhere.",
+    metric: "0 bytes stored",
     icon: ServerOff,
-    className: "md:col-span-1 md:row-span-1",
+    className: "",
   },
   {
     title: "Large File Support",
-    desc: "Chunked streaming and backpressure handling for stable transfers.",
+    desc: "Chunked streaming with backpressure handling keeps transfers stable at any size.",
+    metric: "64KB chunks",
     icon: HardDrive,
-    className: "md:col-span-1 md:row-span-1",
+    className: "",
   },
   {
-    title: "Direct Connection",
-    desc: "No middlemen. Data flows directly between two peers.",
+    title: "Secure by Design",
+    desc: "WebRTC encrypts all data in transit. No plaintext. No leaks.",
+    metric: "DTLS 1.2+",
     icon: Lock,
-    className: "md:col-span-1 md:row-span-1",
+    className: "",
   },
   {
-    title: "Connection Manager",
-    desc: "Accept or reject incoming requests. You stay in control.",
+    title: "Connection Control",
+    desc: "Accept or decline requests. You decide who gets access.",
+    metric: "Full control",
     icon: UserCheck,
-    className: "md:col-span-1 md:row-span-1",
+    className: "",
   },
   {
-  title: "Real-Time Streaming",
-  desc: "Begin transferring instantly while the file is still loading. Data is streamed in chunks with live progress updates, reducing wait time and improving transfer reliability.",
-  icon: Activity,
-  className: "md:col-span-4 md:row-span-1",
-}
-
+    title: "Real-Time Progress",
+    desc: "Live progress tracking with chunk-level updates. See exactly how much has been sent and received, in real time.",
+    metric: "Live updates",
+    icon: Activity,
+    className: "md:col-span-4",
+  },
 ];
 
 export default function Features() {
   return (
-    <section className="bg-gray-950 py-24 text-white">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="features" className="py-24 md:py-32 border-t border-white/[0.04]">
+      <div className="mx-auto max-w-6xl px-6">
         {/* Heading */}
         <div className="mb-16 max-w-2xl">
           <motion.h2
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-4xl font-bold tracking-tight md:text-5xl"
+            className="text-3xl font-bold tracking-tight md:text-5xl"
           >
-            More than just file sharing.
+            Everything you need.
+            <br />
+            <span className="text-muted">Nothing you don't.</span>
           </motion.h2>
           <motion.p
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="mt-4 text-lg text-gray-400"
+            className="mt-4 text-lg text-subtle"
           >
-            Built for speed and simplicity. Peerly enables direct browser-to-browser
-            file transfers using WebRTC.
+            Built for speed, simplicity, and security. Every feature serves a
+            purpose.
           </motion.p>
         </div>
 
         {/* Bento Grid */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:auto-rows-[18rem]">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4 md:auto-rows-[200px]">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
-              initial={{ opacity: 0, scale: 0.96 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.35, delay: i * 0.05 }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
               className={clsx(
-                "group relative flex h-full flex-col justify-between overflow-hidden",
-                "rounded-3xl border border-white/10 bg-white/5 p-8",
-                "transition-all hover:bg-white/10 hover:border-white/20",
+                "group relative flex flex-col justify-between overflow-hidden",
+                "rounded-2xl border border-white/6 bg-card p-6 md:p-7",
+                "transition-all duration-300 hover:border-white/12 hover:shadow-[0_0_40px_-12px_rgba(79,140,255,0.1)]",
                 f.className
               )}
             >
-              {/* Glow */}
-              <div className="absolute -right-10 -top-10 h-40 w-40 bg-blue-500/10 blur-3xl transition-all group-hover:bg-blue-500/20" />
+              {/* Hover glow */}
+              <div className="absolute -right-12 -top-12 h-32 w-32 bg-accent/[0.04] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-              {/* Content */}
               <div className="relative z-10">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 transition-transform group-hover:scale-110">
-                  <f.icon size={24} />
+                <div
+                  className={clsx(
+                    "inline-flex items-center justify-center rounded-xl bg-white/[0.04] text-muted group-hover:text-accent transition-colors",
+                    f.large
+                      ? "h-12 w-12 mb-6"
+                      : "h-10 w-10 mb-4"
+                  )}
+                >
+                  <f.icon size={f.large ? 22 : 18} />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold">{f.title}</h3>
-                <p className="text-gray-400">{f.desc}</p>
+                <h3
+                  className={clsx(
+                    "font-semibold tracking-tight",
+                    f.large ? "text-xl mb-2" : "text-[15px] mb-1.5"
+                  )}
+                >
+                  {f.title}
+                </h3>
+                <p
+                  className={clsx(
+                    "text-subtle leading-relaxed",
+                    f.large ? "text-sm max-w-sm" : "text-xs"
+                  )}
+                >
+                  {f.desc}
+                </p>
               </div>
 
-              {/* Progress animation only for hero card */}
-              {i === 0 && (
-                <div className="relative z-10 mt-6 flex gap-2 opacity-60">
-                  <div className="h-2 w-full rounded-full bg-blue-500/30 animate-pulse" />
-                  <div className="h-2 w-2/3 rounded-full bg-purple-500/30 animate-pulse delay-75" />
-                </div>
-              )}
+              {/* Metric badge */}
+              <div className="relative z-10 mt-4">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/6 bg-white/[0.03] px-2.5 py-1 text-[10px] font-mono text-muted uppercase tracking-wider">
+                  {f.metric}
+                </span>
+              </div>
             </motion.div>
           ))}
         </div>

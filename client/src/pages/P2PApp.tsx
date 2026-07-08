@@ -1,20 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useWS, WSProvider } from "../context/WebSocketContext";
 import FileTransfer from "../components/FileTransfer";
-import {
-  Menu,
-  X,
-  User,
-  Users,
-  Share2,
-  Shield,
-  Zap,
-  MousePointerClick,
-  ArrowRight,
-  Copy,
-  Check,
-  Edit2,
-} from "lucide-react";
+import { Share2, Copy, Check, Edit2, X, Users } from "lucide-react";
+
+function hashStr(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
 
 function P2PAppContent() {
   const {
@@ -23,346 +20,355 @@ function P2PAppContent() {
     incomingRequestName,
     connectedRoom,
     isCaller,
+    targetUser,
     sendConnectionRequest,
     acceptRequest,
     rejectRequest,
-    cancelConnectionRequest,
     disconnectPeer,
     myId,
     myName,
     setMyName,
   } = useWS();
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameInput, setEditNameInput] = useState(myName);
+  const [copied, setCopied] = useState(false);
+
+  // Cache the connected peer's name so it doesn't revert to "Unknown"
+  const [cachedPeerName, setCachedPeerName] = useState("");
+
+  useEffect(() => {
+    if (targetUser) {
+      const u = users.find((user) => user.id === targetUser);
+      if (u?.name) {
+        setCachedPeerName(u.name);
+      }
+    }
+  }, [targetUser, users]);
+
+  // STRICTLY filter out ourselves by BOTH ID and Name to ensure we don't show up as a peer node
+  const activePeers = users.filter((u) => u.id !== myId && u.name !== myName);
+
+  // Compute stable radial positions for peers relative to the radar container (0-100%)
+  const peerPositions = useMemo(() => {
+    const pos: Record<string, { x: string; y: string }> = {};
+    activePeers.forEach((u, i) => {
+      const h = hashStr(u.id);
+      const angle =
+        (i / Math.max(activePeers.length, 1)) * 2 * Math.PI +
+        ((h % 100) / 100) * 0.5;
+      const radius = 15 + ((h >> 8) % 35); // 15% to 50% from center
+      pos[u.id] = {
+        x: `${50 + radius * Math.cos(angle)}%`,
+        y: `${50 + radius * Math.sin(angle)}%`,
+      };
+    });
+    return pos;
+  }, [activePeers]);
+
+  const connectedPeerName =
+    cachedPeerName || incomingRequestName || "Connected Peer";
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-black text-white overflow-hidden font-sans">
-      {/* Mobile Header */}
-      <div className="md:hidden bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between z-20 sticky top-0">
-        <div className="flex items-center gap-2">
-          <Share2 className="text-blue-500" size={20} />
-          <h1 className="text-xl font-bold font-mono">Peerly</h1>
-        </div>
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          {isSidebarOpen ? (
-            <X size={20} className="text-gray-300" />
-          ) : (
-            <Menu size={20} className="text-gray-300" />
-          )}
-        </button>
+    <div className="relative h-screen w-full bg-[#0a0a0a] text-white overflow-hidden selection:bg-accent/20 font-sans">
+      {/* ── BACKGROUND LAYER ── */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 grid-bg opacity-30" />
+        <div className="absolute top-0 left-1/2 w-[80vw] h-[80vw] bg-accent/[0.04] rounded-full blur-[150px] -translate-x-1/2 -translate-y-1/2" />
       </div>
 
-      {/* Sidebar Overlay for Mobile */}
-      {isSidebarOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/80 z-30 backdrop-blur-sm"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-80 bg-gray-900/50 backdrop-blur-xl border-r border-gray-800 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } flex flex-col`}
-      >
-        <div className="p-6 border-b border-gray-800 hidden md:block">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Share2 className="text-blue-500" size={24} />
-            </div>
-            <h1 className="text-xl font-bold font-mono">Peerly</h1>
-          </div>
-          <p className="text-sm text-gray-500 ml-1">
-            Secure WebRTC File Transfer
-          </p>
+      {/* ── SOLID HEADER UI ── */}
+      <header className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between z-40 pointer-events-none">
+        <div className="pointer-events-auto">
+          <Link
+            to="/"
+            className="group flex items-center gap-2.5 rounded-xl bg-[#111] border border-[#222] px-4 py-2 hover:bg-[#1a1a1a] transition-colors shadow-sm"
+          >
+            <Share2
+              className="text-accent group-hover:scale-110 transition-transform"
+              size={16}
+            />
+            <span className="text-[14px] font-semibold tracking-tight text-white/90">
+              Peerly
+            </span>
+          </Link>
         </div>
 
-        <div className="p-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-800">
-          {/* Identity Card */}
-          <div className="mb-6 rounded-2xl bg-linear-to-br from-gray-800/80 to-gray-900/80 border border-gray-700/50 p-5 shadow-xl backdrop-blur-md relative overflow-hidden group">
-            {/* Ambient background glow */}
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all duration-500" />
-
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  {/* Avatar */}
-                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
-                    {myName.substring(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-400 font-medium tracking-wider uppercase mb-0.5 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                      Online
-                    </div>
-                    {!isEditingName ? (
-                      <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                        {myName}
-                        <button
-                          onClick={() => {
-                            setEditNameInput(myName);
-                            setIsEditingName(true);
-                          }}
-                          className="text-gray-500 hover:text-blue-400 transition-colors p-1 hover:bg-white/5 rounded-md"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      </h3>
-                    ) : (
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <input
-                          type="text"
-                          value={editNameInput}
-                          onChange={(e) => setEditNameInput(e.target.value)}
-                          className="w-32 px-2 py-1 bg-black/40 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && editNameInput.trim()) {
-                              setMyName(editNameInput.trim());
-                              setIsEditingName(false);
-                            } else if (e.key === "Escape") {
-                              setIsEditingName(false);
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={() => {
-                            if (editNameInput.trim()) {
-                              setMyName(editNameInput.trim());
-                              setIsEditingName(false);
-                            }
-                          }}
-                          className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
-                        >
-                          <Check size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>Your Device ID</span>
-                </div>
-                <div className="relative group/id">
-                  <div className="w-full bg-black/40 border border-gray-800 rounded-lg py-2.5 px-3 text-xs font-mono text-gray-400 flex items-center justify-between group-hover/id:border-gray-700 transition-colors">
-                    <span className="truncate mr-2 opacity-70 group-hover/id:opacity-100 transition-opacity">
-                      {myId}
-                    </span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(myId)}
-                      className="text-gray-600 hover:text-white transition-colors"
-                      title="Copy ID"
-                    >
-                      <Copy size={12} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+        <div className="pointer-events-auto bg-[#111] border border-[#222] rounded-xl p-2 flex items-center gap-3 shadow-sm">
+          <div className="flex flex-col px-2">
+            <div className="flex items-center justify-end gap-1.5 mb-0.5">
+              <span className="text-[9px] uppercase tracking-widest text-emerald-500 font-bold">
+                Online
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
             </div>
-          </div>
-
-          <h2 className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 px-1">
-            <Users size={14} />
-            Online Users ({users.length})
-          </h2>
-
-          <div className="space-y-3">
-            {users.length === 0 && (
-              <div className="text-center py-8 text-gray-500 bg-gray-800/20 rounded-lg border border-dashed border-gray-800">
-                <Users size={32} className="mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No users online</p>
-                <p className="text-xs mt-1">Wait for peers to join...</p>
+            {!isEditingName ? (
+              <div
+                className="flex items-center gap-2 group cursor-pointer"
+                onClick={() => setIsEditingName(true)}
+              >
+                <span className="text-sm font-semibold text-white group-hover:text-accent transition-colors">
+                  {myName}
+                </span>
+                <Edit2
+                  size={12}
+                  className="text-[#555] group-hover:text-accent transition-colors"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={editNameInput}
+                  onChange={(e) => setEditNameInput(e.target.value)}
+                  className="w-24 bg-[#0a0a0a] border border-[#333] rounded px-2 py-0.5 text-sm font-semibold text-white focus:outline-none focus:border-accent text-right"
+                  autoFocus
+                  onBlur={() => {
+                    if (editNameInput.trim()) {
+                      setMyName(editNameInput.trim());
+                    }
+                    setIsEditingName(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                />
               </div>
             )}
-
-            {users.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => {
-                  sendConnectionRequest(u.id);
-                  setIsSidebarOpen(false);
-                }}
-                className="group w-full text-left p-3 rounded-xl bg-gray-800/40 hover:bg-gray-800 border border-transparent hover:border-gray-700 transition-all duration-200"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                    <span className="text-sm font-medium text-gray-200">
-                      {u.name || "Peer User"}
-                    </span>
-                  </div>
-                  <ArrowRight
-                    size={14}
-                    className="text-gray-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"
-                  />
-                </div>
-                <div className="text-xs text-gray-500 font-mono pl-4 truncate opacity-60 group-hover:opacity-100 transition-opacity">
-                  {u.id}
-                </div>
-              </button>
-            ))}
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-[#222] border border-[#333] flex items-center justify-center text-white font-mono text-xs uppercase">
+            {myName.substring(0, 2)}
           </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main */}
-      <main className="flex-1 w-full bg-black relative flex flex-col">
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-blue-900/20 via-black to-black pointer-events-none" />
+      {/* ── SOLID FOOTER UI ── */}
+      <footer className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between z-40 pointer-events-none">
+        <div
+          className="pointer-events-auto bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 flex items-center gap-3 group hover:bg-[#1a1a1a] transition-colors cursor-pointer shadow-sm"
+          onClick={() => {
+            navigator.clipboard.writeText(myId);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+        >
+          <span className="text-[11px] text-[#888] font-mono group-hover:text-white transition-colors">
+            {myId}
+          </span>
+          <button className="text-[#555] group-hover:text-white transition-colors">
+            {copied ? (
+              <Check size={14} className="text-emerald-500" />
+            ) : (
+              <Copy size={14} />
+            )}
+          </button>
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex items-center justify-center relative z-10 w-full">
-          {!connectedRoom && (
-            <div className="w-full max-w-2xl flex flex-col items-center justify-center text-center">
-              {!incomingRequest && !isCaller && (
-                <div className="space-y-6">
-                  <div className="relative inline-block">
-                    <div className="absolute inset-0 bg-blue-500 blur-3xl opacity-20 rounded-full" />
-                    <div className="relative bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-2xl">
-                      <Zap size={48} className="text-blue-500" />
-                    </div>
+        {connectedRoom && (
+          <div className="pointer-events-auto">
+            <button
+              onClick={disconnectPeer}
+              className="bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 text-sm text-[#888] hover:bg-[#1a1a1a] hover:text-red-400 hover:border-red-900/50 transition-all flex items-center gap-2 shadow-sm"
+            >
+              <X size={16} /> Disconnect
+            </button>
+          </div>
+        )}
+      </footer>
+
+      {/* ── TRANSFER CANVAS (MAIN AREA) ── */}
+      <main className="absolute inset-0 z-10 flex items-center justify-center">
+        {/* 1. Radar State (Not Connected) */}
+        {!connectedRoom && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            {/* The Radar Container (Perfect circle using aspect-square, perfectly centered) */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[55vh] max-h-[600px] min-h-[350px] aspect-square">
+              {/* Concentric Rings */}
+              <div className="absolute inset-0 rounded-full border border-[#222]" />
+              <div className="absolute inset-[12.5%] rounded-full border border-[#1a1a1a]" />
+              <div className="absolute inset-[25%] rounded-full border border-[#222]" />
+              <div className="absolute inset-[37.5%] rounded-full border border-[#1a1a1a]" />
+              <div className="absolute inset-[50%] rounded-full border border-[#333]" />
+
+              {/* Radar Sweep */}
+              <div
+                className="absolute inset-0 rounded-full mix-blend-screen opacity-60"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent 0deg, rgba(79,140,255,0.2) 60deg, transparent 120deg)",
+                  animation: "radar-sweep 4s linear infinite",
+                }}
+              />
+
+              {/* Central Node (You) */}
+              <motion.div
+                layoutId="node-you"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-accent/20 animate-ping" />
+                  <div className="w-14 h-14 rounded-full border border-accent/50 bg-[#111] flex items-center justify-center relative z-10">
+                    <div className="w-3 h-3 rounded-full bg-accent shadow-[0_0_15px_rgba(79,140,255,1)] animate-[dot-pulse_2s_ease-in-out_infinite]" />
                   </div>
+                </div>
+              </motion.div>
 
-                  <div className="space-y-4">
-                    <h2 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                      Connect & Share
-                    </h2>
-                    <p className="text-gray-400 max-w-md mx-auto text-lg leading-relaxed">
-                      Select a user from the sidebar to establish a secure,
-                      peer-to-peer encrypted connection.
-                    </p>
-                  </div>
+              {/* Peer Nodes - Positioned strictly inside the container */}
+              {activePeers.map((u) => {
+                const pos = peerPositions[u.id];
+                if (!pos) return null;
+                const isWaiting =
+                  isCaller && !incomingRequest && targetUser === u.id;
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 w-full max-w-lg mx-auto">
-                    {[
-                      { icon: Shield, label: "End-to-End Encrypted" },
-                      { icon: Zap, label: "Lightning Fast" },
-                      { icon: MousePointerClick, label: "One-Click Connect" },
-                    ].map((item, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-col items-center p-3 rounded-lg bg-gray-900/50 border border-gray-800"
-                      >
-                        <item.icon size={20} className="text-gray-500 mb-2" />
-                        <span className="text-xs text-gray-400">
-                          {item.label}
+                return (
+                  <motion.div
+                    key={u.id}
+                    layoutId={`node-${u.id}`}
+                    className="absolute z-10 flex flex-col items-center justify-center -translate-x-1/2 -translate-y-1/2 group"
+                    style={{ left: pos.x, top: pos.y }}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                  >
+                    <button
+                      onClick={() => sendConnectionRequest(u.id)}
+                      className="relative cursor-pointer"
+                    >
+                      <div className="absolute inset-0 -m-3 rounded-full bg-emerald-500/10 opacity-0 group-hover:opacity-100 group-hover:animate-[pulse-ring_1.5s_ease-in-out_infinite] transition-opacity" />
+                      <div className="w-10 h-10 rounded-full border border-[#333] bg-[#111] flex items-center justify-center hover:border-emerald-500 transition-colors relative z-10">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                      </div>
+
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 bg-[#111] border border-[#333] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-lg">
+                        <span className="text-xs font-semibold text-white block">
+                          {u.name || "Peer"}
+                        </span>
+                        <span className="text-[10px] text-[#777] font-mono">
+                          {u.id.substring(0, 8)}...
                         </span>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="md:hidden pt-8">
-                    <button
-                      onClick={() => setIsSidebarOpen(true)}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-medium transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
-                    >
-                      Browse Online Users
                     </button>
-                  </div>
-                </div>
-              )}
-
-              {isCaller && !incomingRequest && (
-                <div className="flex flex-col items-center space-y-6">
-                  <div className="flex flex-col items-center animate-pulse space-y-4">
-                    <div className="p-4 rounded-full bg-blue-500/10 border border-blue-500/20">
-                      <Users size={32} className="text-blue-500" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-white">
-                      Waiting for connection...
-                    </h2>
-                    <p className="text-gray-500">
-                      Request has been sent to the peer.
-                    </p>
-                  </div>
-                  <button
-                    onClick={cancelConnectionRequest}
-                    className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-colors border border-gray-700"
-                  >
-                    Cancel Request
-                  </button>
-                </div>
-              )}
+                    {isWaiting && (
+                      <div className="absolute -bottom-7 bg-[#111] border border-accent/50 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="text-[10px] text-accent font-semibold animate-pulse">
+                          Connecting
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
-          )}
 
-          {connectedRoom && (
-            <div className="w-full max-w-4xl flex flex-col items-center">
-              <div className="mb-8 flex items-center gap-3 bg-green-500/10 px-4 py-2 rounded-full border border-green-500/20">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-green-400 font-medium text-sm">
-                  Connection Active
-                </span>
-                <div className="w-px h-4 bg-green-500/20 mx-1" />
-                <span className="text-xs text-gray-400">
-                  {isCaller ? "Sending Mode" : "Receiving Mode"}
-                </span>
+            {/* Waiting Text */}
+            <div className="absolute bottom-16 flex flex-col items-center">
+              <span className="text-xs text-accent font-mono uppercase tracking-widest mb-1 font-bold">
+                {activePeers.length}{" "}
+                {activePeers.length === 1 ? "Peer" : "Peers"} Online
+              </span>
+              <p className="text-sm text-[#888]">
+                {activePeers.length > 0
+                  ? "Select a node to establish a secure connection."
+                  : "Searching for peers on the network..."}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 2. Connected State (Centered UI) */}
+        {connectedRoom && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex flex-col items-center justify-center w-full px-6 z-20"
+          >
+            <div className="w-full max-w-[480px]">
+              {/* Peer Header */}
+              <div className="mb-6 flex flex-col items-center text-center">
+                <motion.div
+                  layoutId={targetUser ? `node-${targetUser}` : "node-peer"}
+                  className="w-16 h-16 mb-4 rounded-full border-2 border-emerald-500 bg-[#111] flex items-center justify-center relative shadow-[0_0_30px_rgba(16,185,129,0.15)]"
+                >
+                  <div className="absolute inset-0 rounded-full border border-emerald-500/40 animate-[pulse-ring_3s_ease-in-out_infinite]" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,1)]" />
+                </motion.div>
+                <h2 className="text-xl font-bold text-white mb-1">
+                  {connectedPeerName}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#777] font-mono">
+                    {targetUser?.substring(0, 8)}...
+                  </span>
+                </div>
               </div>
 
-              <FileTransfer />
-
-              <button
-                onClick={disconnectPeer}
-                className="mt-6 px-6 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg font-medium transition-colors border border-red-500/30 flex items-center gap-2"
-              >
-                <X size={16} />
-                Close
-              </button>
+              {/* The Transfer Component */}
+              <div className="relative z-30">
+                <FileTransfer
+                  peerName={connectedPeerName}
+                  disconnectPeer={disconnectPeer}
+                />
+              </div>
             </div>
-          )}
-        </div>
+          </motion.div>
+        )}
       </main>
 
-      {/* Incoming Request Modal */}
-      {incomingRequest && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="p-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
-                <Users size={32} className="text-blue-500" />
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-white">
+      {/* ── INCOMING REQUEST MODAL ── */}
+      <AnimatePresence>
+        {incomingRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0f0f0f] rounded-2xl border border-[#222] shadow-2xl w-full max-w-md overflow-hidden relative"
+            >
+              <div className="p-8 text-center relative">
+                <div className="w-16 h-16 bg-[#1a1a1a] border border-[#333] rounded-xl flex items-center justify-center mx-auto mb-6">
+                  <Users size={28} className="text-white" />
+                </div>
+                <h3 className="text-xl font-bold tracking-tight mb-2 text-white">
                   Incoming Request
                 </h3>
-                <p className="text-gray-400 text-sm mt-2 break-all px-4">
-                  <span className="text-white font-medium">
+                <p className="text-[#888] text-sm">
+                  <span className="text-white font-semibold">
                     {incomingRequestName || "Someone"}
                   </span>{" "}
-                  wants to send you a file.
+                  wants to establish a secure P2P tunnel with you.
                 </p>
-                <p className="text-xs text-gray-500 font-mono mt-1">
-                  {incomingRequest}
-                </p>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <button
-                  onClick={() => rejectRequest(incomingRequest)}
-                  className="px-4 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-medium transition-colors"
-                >
-                  Decline
-                </button>
-                <button
-                  onClick={() => acceptRequest(incomingRequest)}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 transition-all"
-                >
-                  Accept
-                </button>
+                <div className="mt-8 grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => rejectRequest(incomingRequest)}
+                    className="px-4 py-3 rounded-lg border border-[#333] hover:bg-[#1a1a1a] hover:text-white transition-colors text-sm font-semibold text-[#888]"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => acceptRequest(incomingRequest)}
+                    className="px-4 py-3 rounded-lg bg-white text-black hover:bg-[#e6e6e6] transition-colors text-sm font-bold shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                  >
+                    Accept Tunnel
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -373,53 +379,54 @@ export default function P2PApp() {
   });
   const [nameInput, setNameInput] = useState("");
 
-  // If no name stored, show name dialog
   if (!name) {
     return (
-      <div className="h-screen bg-black flex items-center justify-center p-4">
-        <div className="bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-          <div className="p-6 space-y-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <User size={32} className="text-blue-500" />
-              </div>
-              <h3 className="text-xl font-bold text-white">
-                Welcome to Peerly
-              </h3>
-              <p className="text-gray-400 text-sm mt-2">
-                Enter your name to get started
-              </p>
-            </div>
+      <div className="h-screen bg-[#0a0a0a] flex items-center justify-center p-4 relative overflow-hidden font-sans">
+        <div className="absolute inset-0 grid-bg opacity-30 pointer-events-none" />
 
-            <input
-              type="text"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="Your name"
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && nameInput.trim()) {
-                  localStorage.setItem("peerly-username", nameInput.trim());
-                  setName(nameInput.trim());
-                }
-              }}
-            />
-
-            <button
-              onClick={() => {
-                if (nameInput.trim()) {
-                  localStorage.setItem("peerly-username", nameInput.trim());
-                  setName(nameInput.trim());
-                }
-              }}
-              disabled={!nameInput.trim()}
-              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 transition-all"
-            >
-              Continue
-            </button>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-[#0f0f0f] rounded-2xl border border-[#222] shadow-2xl w-full max-w-sm p-8 text-center relative z-10"
+        >
+          <div className="w-16 h-16 bg-[#1a1a1a] border border-[#333] rounded-xl flex items-center justify-center mx-auto mb-6">
+            <Share2 size={28} className="text-accent" />
           </div>
-        </div>
+          <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">
+            Welcome to Peerly
+          </h1>
+          <p className="text-[#888] text-sm mb-8">
+            Enter your name to join the secure peer-to-peer network.
+          </p>
+
+          <input
+            type="text"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="Your name"
+            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#333] rounded-lg text-base text-center text-white placeholder-[#555] focus:outline-none focus:border-accent transition-colors mb-4"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && nameInput.trim()) {
+                localStorage.setItem("peerly-username", nameInput.trim());
+                setName(nameInput.trim());
+              }
+            }}
+          />
+
+          <button
+            onClick={() => {
+              if (nameInput.trim()) {
+                localStorage.setItem("peerly-username", nameInput.trim());
+                setName(nameInput.trim());
+              }
+            }}
+            disabled={!nameInput.trim()}
+            className="w-full px-4 py-3 bg-white hover:bg-[#e6e6e6] disabled:bg-[#222] disabled:text-[#555] text-black rounded-lg text-sm font-bold transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] disabled:shadow-none"
+          >
+            Launch Peerly
+          </button>
+        </motion.div>
       </div>
     );
   }
