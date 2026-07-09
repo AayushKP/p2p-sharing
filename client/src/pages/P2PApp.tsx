@@ -150,19 +150,19 @@ function P2PAppContent() {
       </header>
 
       {/* ── SOLID FOOTER UI ── */}
-      <footer className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between z-40 pointer-events-none">
+      <footer className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex items-end justify-between gap-2 z-40 pointer-events-none">
         <div
-          className="pointer-events-auto bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 flex items-center gap-3 group hover:bg-[#1a1a1a] transition-colors cursor-pointer shadow-sm"
+          className="pointer-events-auto bg-[#111] border border-[#222] rounded-xl px-3 sm:px-4 py-2.5 flex items-center gap-2 sm:gap-3 group hover:bg-[#1a1a1a] transition-colors cursor-pointer shadow-sm"
           onClick={() => {
             navigator.clipboard.writeText(myId);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           }}
         >
-          <span className="text-[11px] text-[#888] font-mono group-hover:text-white transition-colors">
+          <span className="text-[11px] text-[#888] font-mono group-hover:text-white transition-colors truncate max-w-[100px] sm:max-w-none">
             {myId}
           </span>
-          <button className="text-[#555] group-hover:text-white transition-colors">
+          <button className="text-[#555] group-hover:text-white transition-colors flex-shrink-0">
             {copied ? (
               <Check size={14} className="text-emerald-500" />
             ) : (
@@ -194,7 +194,7 @@ function P2PAppContent() {
             className="absolute inset-0 flex items-center justify-center"
           >
             {/* The Radar Container (Perfect circle using aspect-square, perfectly centered) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[55vh] max-h-[600px] min-h-[350px] aspect-square">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[500px] min-w-[300px] aspect-square">
               {/* Concentric Rings */}
               <div className="absolute inset-0 rounded-full border border-[#222]" />
               <div className="absolute inset-[12.5%] rounded-full border border-[#1a1a1a]" />
