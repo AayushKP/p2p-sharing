@@ -105,7 +105,17 @@ wss.on("connection", (ws, req) => {
       const requester = users.find((u) => u.id === data.from);
       const receiver = newUser; // B is newUser
 
-      requester?.ws.send(
+      if (!requester) {
+        receiver.ws.send(
+          JSON.stringify({
+            type: "connection-timeout", // Or a specific error
+            from: data.from,
+          })
+        );
+        return;
+      }
+
+      requester.ws.send(
         JSON.stringify({
           type: "webrtc-start",
           roomId,
@@ -118,7 +128,7 @@ wss.on("connection", (ws, req) => {
         JSON.stringify({
           type: "webrtc-start",
           roomId,
-          otherUser: requester!.id,
+          otherUser: requester.id,
           isCaller: false, // B is receiver
         })
       );
