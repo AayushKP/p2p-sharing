@@ -146,6 +146,10 @@ export function WSProvider({
         rtcRef.current = connection;
         setRtc(connection);
 
+        connection.sendRelayMessage = (msg: any) => {
+          ws.send(msg.type, { ...msg, to: data.otherUser });
+        };
+
         connection.onIceCandidate = (candidate) => {
           ws.send("ice-candidate", {
             to: data.otherUser,
@@ -173,6 +177,12 @@ export function WSProvider({
         setTargetUser(null);
         rtcRef.current = null;
         setRtc(null);
+        return;
+      }
+
+      // RELAY FALLBACK: Route incoming relay messages to WebRTCManager
+      if (data.type && data.type.startsWith("relay-") && rtcRef.current) {
+        rtcRef.current.handleRelayMessage(data);
         return;
       }
 

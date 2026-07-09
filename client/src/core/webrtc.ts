@@ -58,6 +58,10 @@ export class WebRTCManager {
     this.peer.onconnectionstatechange = () => {
       const state = this.peer.connectionState;
       console.log("[RTC] PC state:", state);
+      
+      // If we've already fallen back to Relay Mode, ignore WebRTC connection failures
+      if (this.relayMode) return;
+      
       if (state === "failed" || state === "closed") {
         if (this.wasEverConnected) {
           this.isChannelOpen = false;
@@ -93,6 +97,7 @@ export class WebRTCManager {
     this.dataChannel.onmessage = this.handleDataChannelMessage;
 
     this.dataChannel.onclose = () => {
+      if (this.relayMode) return;
       if (this.wasEverConnected) {
         this.isChannelOpen = false;
         this.onDisconnected?.();
@@ -113,6 +118,7 @@ export class WebRTCManager {
     this.dataChannel.onmessage = this.handleDataChannelMessage;
 
     this.dataChannel.onclose = () => {
+      if (this.relayMode) return;
       if (this.wasEverConnected) {
         this.isChannelOpen = false;
         this.onDisconnected?.();
@@ -194,12 +200,109 @@ export class WebRTCManager {
     }
   }
 
+  relayMode: boolean = false;
+  sendRelayMessage: ((msg: any) => void) | null = null;
+
+  switchToRelayMode(isInitiator: boolean = true) {
+    if (this.relayMode) return;
+    this.relayMode = true;
+    this.isChannelOpen = true;
+    if (isInitiator) {
+      this.sendRelayMessage?.({ type: "relay-init" });
+    }
+    this.onConnected?.();
+  }
+
+  handleRelayMessage(msg: any) {
+    if (msg.type === "relay-init") {
+      this.switchToRelayMode(false);
+      return;
+    } else if (msg.type === "relay-meta") {
+      this.incomingMeta = msg.meta;
+      this.receivedBuffers = [];
+      this.receivedSize = 0;
+      this.onReceiveProgress?.(0);
+    } else if (msg.type === "relay-prompt-send") {
+      this.onPromptSend?.();
+    } else if (msg.type === "relay-reset") {
+      this.onReset?.();
+    } else if (msg.type === "relay-chunk") {
+      const binaryString = atob(msg.data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+      }
+      this.receivedBuffers.push(bytes);
+      this.receivedSize += bytes.byteLength;
+
+      if (this.incomingMeta && this.onReceiveProgress) {
+        const percent = Math.floor(
+          (this.receivedSize / this.incomingMeta.size) * 100
+        );
+        this.onReceiveProgress(percent);
+      }
+    } else if (msg.type === "relay-done" && this.incomingMeta) {
+      const blob = new Blob(this.receivedBuffers, {
+        type: this.incomingMeta.type,
+      });
+
+      const file = new File([blob], this.incomingMeta.name, {
+        type: this.incomingMeta.type,
+      });
+
+      this.onFileReceived?.(file);
+      this.receivedBuffers = [];
+      this.incomingMeta = null;
+    }
+  }
+
   async sendFile(file: File) {
-    if (!this.dataChannel || !this.isChannelOpen) {
-      throw new Error("DataChannel not open");
+    if (!this.isChannelOpen) {
+      throw new Error("Channel not open");
     }
 
-    const channel = this.dataChannel;
+    if (this.relayMode) {
+      this.sendRelayMessage?.({
+        type: "relay-meta",
+        meta: { name: file.name, size: file.size, type: file.type }
+      });
+      
+      let offset = 0;
+      const CHUNK_SIZE = 64 * 1024;
+      
+      const pump = async () => {
+        while (offset < file.size) {
+          const slice = file.slice(offset, offset + CHUNK_SIZE);
+          const buffer = await slice.arrayBuffer();
+          
+          let binary = '';
+          const bytes = new Uint8Array(buffer);
+          const len = bytes.byteLength;
+          for (let i = 0; i < len; i++) {
+              binary += String.fromCharCode(bytes[i]);
+          }
+          const base64 = btoa(binary);
+
+          this.sendRelayMessage?.({
+            type: "relay-chunk",
+            data: base64
+          });
+          
+          offset += buffer.byteLength;
+          this.onSendProgress?.(Math.floor((offset / file.size) * 100));
+          
+          // Yield to event loop to prevent blocking UI during large encodes
+          await new Promise(r => setTimeout(r, 0)); 
+        }
+        this.sendRelayMessage?.({ type: "relay-done" });
+      };
+      
+      await pump();
+      return;
+    }
+
+    const channel = this.dataChannel!;
 
     channel.send(
       JSON.stringify({

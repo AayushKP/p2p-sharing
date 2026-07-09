@@ -214,6 +214,15 @@ wss.on("connection", (ws, req) => {
         );
       }
     }
+
+    // RELAY FALLBACK: Route any message starting with 'relay-' directly to the target
+    if (data.type && data.type.startsWith("relay-")) {
+      const target = users.find((u) => u.id === data.to);
+      if (target) {
+        // Forward the exact payload, just attach the 'from' field to be safe
+        target.ws.send(JSON.stringify({ ...data, from: newUser.id }));
+      }
+    }
   });
 
   ws.on("close", () => {

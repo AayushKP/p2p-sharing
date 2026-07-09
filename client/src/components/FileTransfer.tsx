@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useWS } from "../context/WebSocketContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, CheckCircle, Loader2, Download, FileBox, Clock, X } from "lucide-react";
+import { UploadCloud, CheckCircle, Loader2, Download, FileBox, Clock, X, Cloud } from "lucide-react";
 
 interface FileTransferProps {
   peerName: string;
@@ -22,6 +22,7 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
   const [receiveProgress, setReceiveProgress] = useState(0);
   const [channelReady, setChannelReady] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [isRelayMode, setIsRelayMode] = useState(false);
   
   // History dialog state
   const [recentTransfer, setRecentTransfer] = useState<TransferHistory | null>(null);
@@ -40,19 +41,24 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
     setReceiveProgress(0);
     setRecentTransfer(null);
     setShowDialog(false);
+    setIsRelayMode(false);
     
-    // 30s timeout for connection
+    // 10s timeout for WebRTC -> Switch to Relay Mode
     const timeout = setTimeout(() => {
-      setIsConnecting(false);
-      setConnectionError(true);
-      setChannelReady(false);
-    }, 30000);
+      if (rtc && !rtc.isChannelOpen) {
+        console.log("[FileTransfer] WebRTC Timeout. Switching to Relay Mode.");
+        rtc.switchToRelayMode();
+      }
+    }, 10000);
 
     rtc.onConnected = () => {
       clearTimeout(timeout);
       setIsConnecting(false);
       setChannelReady(true);
       setConnectionError(false);
+      if (rtc.relayMode) {
+        setIsRelayMode(true);
+      }
     };
 
     rtc.onConnectionFailed = () => {
@@ -115,7 +121,9 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
   }
 
   function handlePromptSend() {
-    if (rtc?.dataChannel?.readyState === "open") {
+    if (rtc?.relayMode) {
+      rtc.sendRelayMessage?.({ type: "relay-prompt-send" });
+    } else if (rtc?.dataChannel?.readyState === "open") {
       rtc.dataChannel.send(JSON.stringify({ type: "PROMPT_SEND" }));
     }
   }
@@ -148,6 +156,13 @@ export default function FileTransfer({ peerName, disconnectPeer }: FileTransferP
 
   return (
     <div className="w-full relative font-sans h-56">
+      {/* Relay Mode Badge */}
+      {isRelayMode && (
+        <div className="absolute top-4 left-4 px-2 py-1 bg-[#111] border border-accent/40 rounded shadow-md text-[10px] text-accent font-bold uppercase tracking-wider flex items-center gap-1.5 z-30">
+          <Cloud size={14} className="text-accent" /> Cloud Relay Mode
+        </div>
+      )}
+
       {/* Base Layer: Connection Error */}
       {connectionError && (
         <motion.div
