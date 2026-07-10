@@ -16,7 +16,8 @@ A peer-to-peer file sharing application built with React, TypeScript, WebRTC, an
 
 - **Custom Names & Device Info** - Register custom display names and device details (model, manufacturer) for easy identification
 - **Advanced Controls** - Request a peer to send a file or seamlessly cancel connection requests
-- **Relay Fallback** - If direct P2P is unavailable or times out, file chunks are securely relayed through the server to keep the session working
+- **Dual Relay Fallback** - Ensures connectivity when direct P2P fails through two layers: first utilizing a standard WebRTC TURN server, and if that fails, falling back to an application-level relay that securely routes file chunks through the WebSocket server to keep the session working.
+
 ## Architecture
 
 ```
@@ -29,12 +30,11 @@ A peer-to-peer file sharing application built with React, TypeScript, WebRTC, an
        │                        │                         │
        └────────────────────────┼─────────────────────────┘
                                 │
-           ┌───────▼────────┐
-           │ Signaling      │
-           │ Server         │
-           │ (Node.js + WS) │
-           │  User registry │
-           └────────────────┘
+                        ┌───────▼────────┐
+                        │ Signaling      │
+                        │ Server         │
+                        │ (Node.js + WS) │
+                        └────────────────┘
 ```
 
 See `architecture.md` for a detailed explanation of the signaling server and the end-to-end P2P flow.
