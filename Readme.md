@@ -5,13 +5,18 @@ A peer-to-peer file sharing application built with React, TypeScript, WebRTC, an
 ## Features
 
 - **Direct P2P Transfer** - Files stream straight between browsers over a WebRTC DataChannel
+- **Bidirectional Transfers** - Either peer can send files after the connection is established
 - **Encrypted by Default** - WebRTC secures every transfer in transit with DTLS encryption
 - **No Server Storage** - The signaling server only handles discovery and connection setup
+- **Relay Fallback** - If direct P2P is unavailable, messages can be relayed through the server to keep the session working
 - **Large File Support** - Chunked transfer with backpressure handling keeps big files reliable
 - **Connection Control** - Accept or decline connection requests before a transfer starts
 - **Real-time Progress** - Live upload and download progress tracking for sender and receiver
 - **Multi-user Support** - See all online users and connect with any of them
 
+- **Custom Names & Device Info** - Register custom display names and device details (model, manufacturer) for easy identification
+- **Advanced Controls** - Request a peer to send a file or seamlessly cancel connection requests
+- **Relay Fallback** - If direct P2P is unavailable or times out, file chunks are securely relayed through the server to keep the session working
 ## Architecture
 
 ```
@@ -24,12 +29,15 @@ A peer-to-peer file sharing application built with React, TypeScript, WebRTC, an
        │                        │                         │
        └────────────────────────┼─────────────────────────┘
                                 │
-                        ┌───────▼────────┐
-                        │ Signaling      │
-                        │ Server         │
-                        │ (Node.js + WS) │
-                        └────────────────┘
+           ┌───────▼────────┐
+           │ Signaling      │
+           │ Server         │
+           │ (Node.js + WS) │
+           │  User registry │
+           └────────────────┘
 ```
+
+See `architecture.md` for a detailed explanation of the signaling server and the end-to-end P2P flow.
 
 ### Tech Stack
 
@@ -143,18 +151,18 @@ p2psharing/
 
 ### Connection Flow
 
-Connection requests are placed into a small queue so signaling stays ordered and reliable. This prevents the issue where a connection would sometimes succeed and sometimes fail.
+Connection requests are forwarded directly to the recipient. To ensure reliability, if a direct WebRTC connection fails to establish within 10 seconds or drops later, the application falls back to a cloud relay mode, converting file chunks to base64 and routing them through the signaling server.
 
 ```
-1. User A connects to WebSocket server
+1. User A connects to WebSocket server (can register name/device)
    ↓
 2. User B connects to WebSocket server
    ↓
-3. Server broadcasts online users list
+3. Server broadcasts online users list (with device info)
    ↓
-4. User A clicks on User B (request is queued and sent)
+4. User A clicks on User B (request is forwarded directly)
    ↓
-5. User B accepts the request from the queue
+5. User B accepts the request via modal (or rejects it)
    ↓
 6. Server sends webrtc-start signal to both users
    ↓
@@ -166,6 +174,7 @@ Connection requests are placed into a small queue so signaling stays ordered and
 8. DataChannel opens (P2P connection established)
    ↓
 9. File transfer happens directly between peers
+   └── If needed, relay fallback keeps messages moving through the server
 ```
 
 ### File Transfer Protocol:
@@ -231,6 +240,8 @@ Connection requests are placed into a small queue so signaling stays ordered and
 - Disconnect current peer to connect with another user
 - Multiple transfers can happen sequentially
 - After a transfer completes, you can send or receive another file without refreshing the page
+- Transfer direction is not fixed: both peers can send files to each other after the connection is live
+- You can even click the **Download** icon during a connection to prompt your peer to select a file and send it to you
 
 ## Environment Variables
 

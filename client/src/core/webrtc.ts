@@ -130,8 +130,7 @@ export class WebRTCManager {
       } else if (msg.type === "RESET") {
         this.onReset?.();
       } else if (msg.type === "DONE" && this.incomingMeta) {
-        //@ts-ignore
-        const blob = new Blob(this.receivedBuffers, {
+        const blob = new Blob(this.receivedBuffers as BlobPart[], {
           type: this.incomingMeta.type,
         });
 
@@ -233,7 +232,7 @@ export class WebRTCManager {
         this.onReceiveProgress(percent);
       }
     } else if (msg.type === "relay-done" && this.incomingMeta) {
-      const blob = new Blob(this.receivedBuffers, {
+      const blob = new Blob(this.receivedBuffers as BlobPart[], {
         type: this.incomingMeta.type,
       });
 

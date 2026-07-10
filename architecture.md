@@ -32,12 +32,13 @@ The architecture relies on a hybrid approach:
 
 Before two users can share files, they need to establish a P2P connection. This process uses the signaling server to exchange connection information.
 
-1. **Discovery:**
-   - Both users (User A and User B) connect to the WebSocket server using the [ws.ts](client/src/core/ws.ts#L1) file.
-   - The signaling server broadcasts the list of all online users. In the client, this is received and updated via the `ws.onmessage` handler's `online-users` event in [WebSocketContext.tsx](client/src/context/WebSocketContext.tsx#L104).
+1. **Discovery & Registration:**
+   - Both users (User A and User B) connect to the WebSocket server using the [ws.ts](client/src/core/ws.ts#L1) file. Users can register custom display names (`register-name`) and device details (`register-device`).
+   - The signaling server broadcasts the list of all online users (with device details). In the client, this is received and updated via the `ws.onmessage` handler's `online-users` event in [WebSocketContext.tsx](client/src/context/WebSocketContext.tsx#L104).
 2. **Request:**
    - User A selects User B from the online list to initiate a connection. This triggers [sendConnectionRequest](client/src/context/WebSocketContext.tsx#L205), which sends a `request-connection` socket message.
-   - The connection request is queued on the server and sent to User B via the WebSocket server. User B receives the `incoming-request` event in [WebSocketContext.tsx](client/src/context/WebSocketContext.tsx#L110).
+   - The connection request is forwarded directly to User B via the WebSocket server. User B receives the `incoming-request` event in [WebSocketContext.tsx](client/src/context/WebSocketContext.tsx#L110).
+   - Alternatively, User A can cancel (`cancel-connection`) or User B can reject (`reject-connection`) the request.
 3. **Acceptance:**
    - User B accepts the connection request, triggering [acceptRequest](client/src/context/WebSocketContext.tsx#L211), which sends an `accept-connection` message back to the server.
 4. **WebRTC Handshake:**
@@ -71,3 +72,8 @@ The receiver handles incoming messages inside [setupReceiverChannel](client/src/
 2. **Chunk Reception:** Incoming binary data (handled as `ArrayBuffer` events) is parsed as a `Uint8Array`, stored in the `receivedBuffers` array, and progress is updated dynamically.
 3. **Completion Reception:** Receiving a string message with `type: "DONE"` signals completion. The chunks in `receivedBuffers` are concatenated into a `Blob` which is wrapped in a standard `File` object and returned through `onFileReceived(file)`.
 4. **Download:** The UI generates a download URL (`URL.createObjectURL()`) to let the user save the file to disk.
+
+### Advanced Controls & Reliability
+
+- **Prompt to Send:** A peer can send a `PROMPT_SEND` message over the DataChannel (or `relay-prompt-send` in relay mode) to trigger the other peer's file selection dialog, making bidirectional sharing smoother.
+- **Relay Fallback Mode:** If the WebRTC connection fails to establish within 10 seconds (e.g., due to strict NATs) or disconnects unexpectedly, the system falls back to a cloud relay over the WebSocket connection. File chunks are converted to Base64 and sent directly through the signaling server (`relay-meta`, `relay-chunk`, `relay-done`), ensuring the transfer can complete even without a direct P2P connection.
